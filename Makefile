@@ -33,5 +33,5 @@ distrib:
 	zip xkozak15.zip ${HEAD} ${SRC} Makefile
 
 clean:
-	rm -f *.o ${webclient}
+	rm -f *.o ${program}
 	rm -f xkozak15.zip
