@@ -31,11 +31,13 @@ int regex() {
 }
 
 int main(int argc, char **argv) {
-	std::string url = "www.seznam.cz";
+	std::string url = "www.nic.cz";
 
-	std::string msg = "GET / HTTP/1.0\nHost: ";
-	msg.append(url);
-	msg.append("\n");
+	std::string msg = "GET / HTTP/1.1\r\n"
+			"Host: www.nic.cz\r\n"
+			"Connection: close\r\n\r\n";
+	//msg.append(url);
+	//msg.append("\n");
 	//msg.append("Connection: close\n");
 	//msg.append("Accept: */*\n");
 	//msg.append("Content-Length: 0\n");
