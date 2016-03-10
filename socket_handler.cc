@@ -4,14 +4,6 @@
 
 #include "socket_handler.h"
 
-#include <sys/socket.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <iostream>
-#include <string.h>
-
 static const int BUFFER_SIZE = 2048;
 
 static std::string create_http_request(const Parsed_url &parsed_url) {
@@ -22,7 +14,7 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
 }
 
 
-void communicate(const Parsed_url &parsed_url) {
+std::string communicate(const Parsed_url &parsed_url) {
 	int client_socket;
 	std::string msg = create_http_request(parsed_url);
 
@@ -63,7 +55,6 @@ void communicate(const Parsed_url &parsed_url) {
 
 
 	while ((bytes_count = recv(client_socket, buffer, BUFFER_SIZE, 0)) > 0) {
-		std::cout << "inside while loop";
 		response.append(buffer);
 		memset(buffer, 0, BUFFER_SIZE);
 	}
@@ -72,11 +63,10 @@ void communicate(const Parsed_url &parsed_url) {
 		perror("ERROR: recvfrom");
 		exit(EXIT_FAILURE);
 	}
-
-	std::cout << "------------Response------------\n" << response << "\n----------------------------\n";
-
 	if (close(client_socket) != 0) {
 		perror("ERROR: close");
 		exit(EXIT_FAILURE);
 	}
+
+	return response;
 }

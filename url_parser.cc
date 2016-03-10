@@ -2,8 +2,9 @@
 // Created by david on 10.3.16.
 //
 
-#include "parsed_url.h"
-#include "helpers.h"
+#include "url_parser.h"
+#include <iostream>
+#include <string>
 
 Parsed_url::Parsed_url(){}
 Parsed_url::Parsed_url(const std::string &domain, const std::string &local_link, int port) : domain(domain),

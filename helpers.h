@@ -6,6 +6,7 @@
 #define IPK_PROJ1_HELPERS_H
 
 #include <iostream>
+#include <stdlib.h>
 
 /**
  * @brief function prints error msg and exits program with given return value
@@ -33,7 +34,7 @@ msg.append("Content-Type: application/x-www-form-urlencoded\n");
 
 std::string msg = "GET / HTTP/1.1\n"
 		"Host: www.seznam.cz\n"
-		"Accept: *\/*\n"
+		"Accept: \n"
 		"Content-Length: 0\n"
 		"Content-Type: application/x-www-form-urlencoded\n";
 std::cout << msg;

@@ -5,7 +5,10 @@
 #ifndef IPK_PROJ1_PARSED_URL_H
 #define IPK_PROJ1_PARSED_URL_H
 
+#include <iostream>
 #include <string>
+
+#include "helpers.h"
 
 class Parsed_url {
 	std::string domain;
