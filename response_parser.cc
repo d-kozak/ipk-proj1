@@ -12,16 +12,16 @@ class StringTokenizer {
 
 public:
 
-	StringTokenizer(string& content, char delim) : pos(0) {
+	StringTokenizer(string content, char delim) : pos(0) {
 		unsigned long end_index;
 		string line;
 
 		while ((end_index = content.find(delim)) != string::npos) {
-			line = content.substr(0,end_index);
-			content = content.substr(end_index + 1,content.size() - 1 - end_index);
-
-			StringTokenizer::content.push_back(line);
+			line = content.substr(0, end_index - 1);
+			content = content.substr(end_index + 1, content.size() - 1 - end_index);
+			this->content.push_back(line);
 		}
+		this->print_content();
 	}
 
 	string get_next_token() {
@@ -31,9 +31,16 @@ public:
 	bool has_next_token() {
 		return pos < content.size();
 	}
+
+	void print_content(){
+		for (auto const &value : this->content) {
+			cout << value << "\n";
+		}
+	}
+
 };
 
-response_result parse_response(string &message) {
+response_result parse_response(string message) {
 	StringTokenizer stringTokenizer(message, '\n');
 	return OK;
 }

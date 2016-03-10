@@ -14,6 +14,6 @@ typedef enum {
 	FAIL
 } response_result;
 
-response_result parse_response(std::string &message);
+response_result parse_response(std::string message);
 
 #endif //IPK_PROJ1_RESPONSE_PARSER_H
