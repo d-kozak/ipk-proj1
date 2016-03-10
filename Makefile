@@ -13,9 +13,9 @@ CPPFLAGS= -std=c++11 -Wall -Wextra -pedantic -g
 program=webclient
 
 #seznamy vsech .c,.h a .o souboru
-OBJ=main.o socket_handler.o url_parser.o
-HEAD=main.h socket_handler.h url_parser.h
-SRC=main.cc socket_handler.cc url_parser.cc
+OBJ=main.o socket_handler.o url_parser.o response_parser.o
+HEAD=main.h socket_handler.h url_parser.h response_parser.h
+SRC=main.cc socket_handler.cc url_parser.cc response_parser.cc
 
 .PHONY: build
 .PHONY: clean

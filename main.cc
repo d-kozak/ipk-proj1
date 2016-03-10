@@ -9,6 +9,15 @@ int main(int argc, char **argv) {
 	}
 	Parsed_url parsed_url = parse_url(argv[1]);
 	std::string response = communicate(parsed_url);
-	std::cout << response;
+	response_result result;
+	int counter = 5;
+	while((result = parse_response(response)) != OK && counter-- > 0){
+		switch (result){
+			case REDIR: break;
+			case FAIL: break;
+			default:
+				error("Default in switch in main, shoul not happen",10);
+		}
+	}
 	return 0;
 }
