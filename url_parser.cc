@@ -3,8 +3,6 @@
 //
 
 #include "url_parser.h"
-#include <iostream>
-#include <string>
 
 Parsed_url::Parsed_url(){}
 Parsed_url::Parsed_url(const std::string &domain, const std::string &local_link, int port) : domain(domain),
