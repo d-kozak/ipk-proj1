@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <vector>
+#include "helpers.h"
 
 typedef enum {
 	OK,
@@ -14,6 +15,11 @@ typedef enum {
 	FAIL
 } response_result;
 
-response_result parse_response(std::string message);
+struct parsed_respose{
+	response_result result;
+	std::string message;
+};
+
+parsed_respose parse_response(std::string& message);
 
 #endif //IPK_PROJ1_RESPONSE_PARSER_H

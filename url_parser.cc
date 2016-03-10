@@ -75,7 +75,7 @@ Parsed_url parse_url(std::string url) {
 		result.setDomain(domain);
 	};
 
-	unsigned long len_local_link = url.size() - first_part.size() - 1; // again we have to avoid the colon
+	unsigned long len_local_link = url.size() - first_part.size(); // again we have to avoid the colon
 
 	if (len_local_link > 0) {
 		// parse the local link from url
