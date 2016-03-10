@@ -3,5 +3,5 @@ project(ipk_proj1)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES main.cpp)
+set(SOURCE_FILES main.cc parsed_url.cc socket_handler.cc)
 add_executable(ipk_proj1 ${SOURCE_FILES})
