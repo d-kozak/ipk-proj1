@@ -15,7 +15,6 @@
 
 #include "url_parser.h"
 
-
-std::string communicate(const Parsed_url &parsed_url);
+std::string* communicate(const Parsed_url* parsed_url);
 
 #endif //IPK_PROJ1_SOCKET_HANDLER_H

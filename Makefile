@@ -24,7 +24,7 @@ SRC=main.cc socket_handler.cc url_parser.cc response_parser.cc
 build: ${program}
 
 ${program}: ${OBJ}
-	${CC} ${OBJ} -o ${program} ${OPT}
+	${CC} ${OBJ} -o ${program} ${OPT} -g
 
 #zavislost vsech .o na .h
 ${OBJ}: ${HEAD}

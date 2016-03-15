@@ -41,8 +41,7 @@ const std::string &Parsed_url::getLocal_link() const {
  * @param url - url to parse
  * @brief function parses given url and returns domain, port num and local url from domain
  */
-Parsed_url parse_url(std::string url) {
-	Parsed_url result;
+Parsed_url* parse_url(std::string& url) {
 	using namespace std;
 	//http://www.fit.vutbr.cz:80/common/img/fit_logo_cz.gif?bla=1&id=5
 	// some\ text -- zrusit '\ '
@@ -56,23 +55,24 @@ Parsed_url parse_url(std::string url) {
 	// check whether the string contains a specific local link or if "/" will be used
 	unsigned long slash_pos = url.find("/");
 	if (slash_pos == string::npos) {
-		return Parsed_url(url, "/", 80);
+		return new Parsed_url(url, "/", 80);
 	}
 
+	Parsed_url* result = new Parsed_url;
 	//look for port number
 	string first_part = url.substr(0, slash_pos);
 
 	unsigned long colon_pos = first_part.find(":");
 	if (colon_pos == string::npos) {
 		// if no port is specified, 80 will be used
-		result.setPort(80);
-		result.setDomain(first_part);
+		result->setPort(80);
+		result->setDomain(first_part);
 	} else {
 		// otherwise we have to parse the specific port
 		string domain = first_part.substr(0, colon_pos);
 		unsigned long num_len = first_part.size() - domain.size();
-		result.setPort(stoi(first_part.substr(colon_pos + 1, num_len))); // + 1 to avoid the colon
-		result.setDomain(domain);
+		result->setPort(stoi(first_part.substr(colon_pos + 1, num_len))); // + 1 to avoid the colon
+		result->setDomain(domain);
 	};
 
 	unsigned long len_local_link = url.size() - first_part.size(); // again we have to avoid the colon
@@ -88,10 +88,10 @@ Parsed_url parse_url(std::string url) {
 		}
 
 		// TODO add control for 'some\ text.txt'
-		result.setLocal_link(local_link);
+		result->setLocal_link(local_link);
 	} else {
 		// there is no specified local link, --> use  the "/" instead
-		result.setLocal_link("/");
+		result->setLocal_link("/");
 	}
 
 	return result;
