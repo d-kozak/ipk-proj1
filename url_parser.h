@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "helpers.h"
+#include "exceptions.h"
 
 class Parsed_url {
 	std::string domain;
@@ -29,7 +30,5 @@ public:
 };
 
 Parsed_url* parse_url(std::string& url);
-
-class InvalidUrlException{};
 
 #endif //IPK_PROJ1_PARSED_URL_H

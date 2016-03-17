@@ -14,7 +14,7 @@ program=webclient
 
 #seznamy vsech .c,.h a .o souboru
 OBJ=main.o socket_handler.o url_parser.o
-HEAD=main.h socket_handler.h url_parser.h
+HEAD=main.h socket_handler.h url_parser.h exceptions.h helpers.h
 SRC=main.cc socket_handler.cc url_parser.cc 
 
 .PHONY: build

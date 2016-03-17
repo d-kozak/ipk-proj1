@@ -29,27 +29,7 @@ int main(int argc, char **argv) {
 		}
 		delete parsed_url;
 		free(response);
-	} catch (InvalidUrlException &e) {
-		if (parsed_url != NULL)
-			delete parsed_url;
-		if (response != NULL)
-			free(response);
-	} catch (SocketErrorException &e) {
-		if (parsed_url != NULL)
-			delete parsed_url;
-		if (response != NULL)
-			free(response);
-	} catch (SocketHandlerInternalException &e) {
-		if (parsed_url != NULL)
-			delete parsed_url;
-		if (response != NULL)
-			free(response);
-	} catch (RedirectionNumberExceededException &e) {
-		if (parsed_url != NULL)
-			delete parsed_url;
-		if (response != NULL)
-			free(response);
-	} catch (PageNotFoundException &e){
+	} catch (BaseException &e) {
 		if (parsed_url != NULL)
 			delete parsed_url;
 		if (response != NULL)
