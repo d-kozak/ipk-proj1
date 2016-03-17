@@ -9,13 +9,14 @@ int main(int argc, char **argv) {
 	}
 	std::string url(argv[1]);
 
-	std::vector<char> *response = NULL;
+	char* response = NULL;
 	Parsed_url *parsed_url = NULL;
 
 	try {
 		parsed_url = parse_url(url);
 		//int counter = 5;
 		while ((response = communicate(parsed_url)) != NULL) {
+			std::cout << "redir to :" << response;
 			/*
 			delete  parsed_url;
 			url.clear();
@@ -31,22 +32,22 @@ int main(int argc, char **argv) {
 			break;
 		}
 		delete parsed_url;
-		delete response;
+		free(response);
 	} catch (InvalidUrlException &e) {
 		if(parsed_url != NULL)
 			delete parsed_url;
 		if(response != NULL)
-			delete response;
+			free(response);
 	} catch(SocketErrorException &e){
 		if(parsed_url != NULL)
 			delete parsed_url;
 		if(response != NULL)
-			delete response;
+			free(response);
 	} catch(SocketHandlerInternalException &e){
 		if(parsed_url != NULL)
 			delete parsed_url;
 		if(response != NULL)
-			delete response;
+			free(response);
 	}
 
 	return ret_val;

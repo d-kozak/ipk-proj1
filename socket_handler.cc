@@ -11,7 +11,7 @@ static const int HEADER_SIZE = 320;
 
 using namespace std;
 
-int parse_ret_val(char *buffer,int bytes_count) {
+int parse_ret_val(char *buffer, ssize_t bytes_count) {
 	int index = 0;
 	int col = 0;
 	vector<char> val;
@@ -24,7 +24,7 @@ int parse_ret_val(char *buffer,int bytes_count) {
 		}
 		index++;
 	}
-	if(!val.empty())
+	if (!val.empty())
 		return stoi(val.data());
 	else
 		return 404;
@@ -95,17 +95,16 @@ static void print_without_chunk_numbers(vector<char> *data, ofstream &output_fil
 	}
 }
 
-vector<char> * parse_next_location(char *buffer) {
+char *parse_next_location(char *buffer) {
 	//cout << buffer << "\n";
 	static const string location_header = "Location: ";
 	char *start_of_url = strstr(buffer, location_header.c_str());
 	start_of_url += location_header.size();
-
-	vector<char> *res = new vector<char>;
-	while (*start_of_url != '\r') {
-		res->push_back(*start_of_url);
-		start_of_url++;
-	}
+	char *end_of_url = strchr(start_of_url, '\r');
+	unsigned long url_size = end_of_url - start_of_url;
+	char *res = (char *) malloc(url_size + 1);
+	memcpy(res, start_of_url, url_size);
+	res[url_size] = '\0';
 	return res;
 }
 
@@ -135,20 +134,20 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
  * Function communicates with specified server using BSD socket
  * @return string - next url to search at, NULL means success
  */
-std::vector<char> *communicate(const Parsed_url *parsed_url) {
+char* communicate(const Parsed_url *parsed_url) {
 	int client_socket;
 	std::string msg = create_http_request(*parsed_url);
 
 	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
 		perror("ERROR: socket");
-		error("",1);
+		error("", 1);
 		throw SocketErrorException();
 	}
 
 	hostent *server = gethostbyname(parsed_url->getDomain().c_str());
 	if (server == NULL) {
 		fprintf(stderr, "ERROR, no such host  as %s.\n", parsed_url->getDomain().c_str());
-		error("",2);
+		error("", 2);
 		throw SocketErrorException();
 	}
 
@@ -161,7 +160,7 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 
 	if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0) {
 		perror("ERROR: connect");
-		error("",3);
+		error("", 3);
 		throw SocketErrorException();
 	}
 
@@ -170,7 +169,7 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 	bytes_count = send(client_socket, msg.c_str(), msg.size(), 0);
 	if (bytes_count < 0) {
 		perror("ERROR: sendto");
-		error("",4);
+		error("", 4);
 		throw SocketErrorException();
 	}
 
@@ -180,7 +179,7 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 	int ret_val;
 	// first process the header
 	if ((bytes_count = recv(client_socket, buffer, HEADER_SIZE, 0)) > 0) {
-		switch (ret_val = parse_ret_val(buffer,bytes_count)) {
+		switch (ret_val = parse_ret_val(buffer, bytes_count)) {
 			case 200:
 				break;
 			case 301:
@@ -218,13 +217,13 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 	if (bytes_count < 0) {
 		delete parsed_url;
 		perror("ERROR: recvfrom");
-		error("",5);
+		error("", 5);
 		throw SocketErrorException();
 	}
 	if (close(client_socket) != 0) {
 		delete parsed_url;
 		perror("ERROR: close");
-		error("",5);
+		error("", 5);
 		throw SocketErrorException();
 	}
 
