@@ -89,11 +89,8 @@ static void print_without_chunk_numbers(vector<char> *data, ofstream &output_fil
 		// get the size of the current chunk
 		chunk_size = stol(chunk_num.data(), &next_char, 16);
 
-		// print current chunk into file
-		for (std::vector<char>::iterator it = data->begin() + i; it != data->begin() + i + chunk_size; ++it) {
-			output_file << *it;
-			tmp_tester.push_back(*it);
-		}
+		std::copy(data->begin() + i,data->begin() + i + chunk_size,std::ostream_iterator<char>(output_file));
+
 		//jump to next chunk
 		i += chunk_size + 2;
 		// clear the vector for storing chunk_size;
