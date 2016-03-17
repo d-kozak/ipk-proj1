@@ -1,3 +1,8 @@
 /webclient
 *.o
 /tmp
+*.png.hex
+*.png
+*.html
+*.gif.hex
+*.gif
