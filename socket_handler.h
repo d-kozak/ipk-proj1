@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string.h>
+#include <algorithm>
+#include <iterator>
 
 #include "url_parser.h"
 

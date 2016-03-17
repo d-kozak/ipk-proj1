@@ -17,45 +17,47 @@ using namespace std;
  */
 int parse_ret_val(char *buffer) {
 	static const int CODE_SIZE = 3; // len of the code is constant
-	while(*buffer != ' ') //skip the 'HTTP/1.1 part'
+	while (*buffer != ' ') //skip the 'HTTP/1.1 part'
 		buffer++;
 	buffer++; // skip the whitespace
 
 	char code[CODE_SIZE + 1];
-	memcpy(code,buffer,CODE_SIZE); //copy the code to separate memory
+	memcpy(code, buffer, CODE_SIZE); //copy the code to separate memory
 	code[3] = '\0'; // just to be sure, end the string
-	char* ptr;
-	int num =(int) strtol(code,&ptr,10);
-	if(*ptr != '\0'){
-		cerr << "-" <<*ptr << "-";
-		error("Converting of ret val in response was not successfull",11);
+	char *ptr;
+	int num = (int) strtol(code, &ptr, 10);
+	if (*ptr != '\0') {
+		cerr << "-" << *ptr << "-";
+		error("Converting of ret val in response was not successfull", 11);
 		throw SocketHandlerInternalException();
 	}
 	return num;
 }
 
-static vector<char> *remove_header(char *buffer, bool &isChunked) {
+static vector<char> *remove_header(char *buffer, bool &isChunked,ssize_t bytes_count) {
 	vector<char> *res = new vector<char>;
-	int counter = 0;
+	int new_lines_counter = 0;
+	ssize_t index = 0;
 	if (strstr(buffer, "Transfer-Encoding: chunked") != NULL)
 		isChunked = true;
 
-	while (*buffer != '\0') {
+	while (true/*buffer != '\0'*/) {
 		if (*buffer == '\r') {
-			counter++;
+			new_lines_counter++;
 		} else if (*buffer == '\n') {
-			if (counter == 3) {
+			if (new_lines_counter == 3) {
 				buffer++;
 				break;
 			}
 			else
-				counter++;
+				new_lines_counter++;
 		} else
-			counter = 0;
+			new_lines_counter = 0;
 		buffer++;
+		index++;
 	}
 
-	while (*buffer != '\0') {
+	while (index++ < bytes_count - 1) {
 		res->push_back(*buffer);
 		buffer++;
 	}
@@ -138,7 +140,7 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
  * Function communicates with specified server using BSD socket
  * @return string - next url to search at, NULL means success
  */
-char* communicate(const Parsed_url *parsed_url) {
+char *communicate(const Parsed_url *parsed_url) {
 	int client_socket;
 	std::string msg = create_http_request(*parsed_url);
 
@@ -190,7 +192,7 @@ char* communicate(const Parsed_url *parsed_url) {
 				error("Redirecting 301 not implemented yet", 9);
 				throw SocketHandlerInternalException();
 			case 302:
-				return parse_next_location(buffer);;
+				return parse_next_location(buffer);
 			case 404:
 				error("Page not found", 8);
 				throw PageNotFoundException();
@@ -206,7 +208,7 @@ char* communicate(const Parsed_url *parsed_url) {
 
 	// get the first part of data
 	bool isChunked = false;
-	vector<char> *data = remove_header(buffer, isChunked);
+	vector<char> *data = remove_header(buffer, isChunked,bytes_count);
 
 	// clear the buffer
 	memset(buffer, 0, BUFFER_SIZE);
@@ -236,14 +238,13 @@ char* communicate(const Parsed_url *parsed_url) {
 
 
 	// open the file for writing
-	ofstream output_file;
-	output_file.open(file_name);
+	ofstream output_file(file_name,std::ios_base::binary);
 
 	if (isChunked)
 		print_without_chunk_numbers(data, output_file);
-	else
-		output_file << data->data();
-
+	else {
+		std::copy(data->begin(),data->end(),std::ostream_iterator<char>(output_file));
+	}
 	output_file.close();
 	return NULL;
 }
