@@ -10,6 +10,5 @@
 #include "url_parser.h"
 #include "socket_handler.h"
 #include "helpers.h"
-#include "response_parser.h"
 
 #endif //IPK_PROJ1_MAIN_H
