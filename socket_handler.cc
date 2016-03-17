@@ -11,23 +11,27 @@ static const int HEADER_SIZE = 320;
 
 using namespace std;
 
+/**
+ * Function parses HTPP response return value
+ * @return int HTTP response return value
+ */
 int parse_ret_val(char *buffer, ssize_t bytes_count) {
-	int index = 0;
-	int col = 0;
-	vector<char> val;
-	while (buffer[index] != '\r' && index < bytes_count) {
-		if (col == 1) {
-			val.push_back(buffer[index]);
-		}
-		if (isspace(buffer[index])) {
-			col++;
-		}
-		index++;
+	static const int CODE_SIZE = 3; // len of the code is constant
+	while(*buffer != ' ') //skip the 'HTTP/1.1 part'
+		buffer++;
+	buffer++; // skip the whitespace
+
+	char code[CODE_SIZE + 1];
+	memcpy(code,buffer,CODE_SIZE); //copy the code to separate memory
+	code[3] = '\0'; // just to be sure, end the string
+	char* ptr;
+	int num =(int) strtol(code,&ptr,10); 
+	if(*ptr != '\0'){
+		cerr << "-" <<*ptr << "-";
+		error("Converting of ret val in response was not successfull",11);
+		throw SocketHandlerInternalException();
 	}
-	if (!val.empty())
-		return stoi(val.data());
-	else
-		return 404;
+	return num;
 }
 
 static vector<char> *remove_header(char *buffer, bool &isChunked) {
