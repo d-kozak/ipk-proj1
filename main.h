@@ -6,6 +6,7 @@
 #define IPK_PROJ1_MAIN_H
 
 #include <iostream>
+#include <vector>
 
 #include "url_parser.h"
 #include "socket_handler.h"

@@ -2,6 +2,7 @@
 
 #include "main.h"
 
+int ret_val = 0;
 
 int main(int argc, char **argv) {
 	if (argc != 2) {
@@ -10,10 +11,23 @@ int main(int argc, char **argv) {
 	std::string url (argv[1]);
 	Parsed_url* parsed_url = parse_url(url);
 
-	std::string* response = communicate(parsed_url);
-
+	std::vector<char>* response = NULL;
+	//int counter = 5;
+	while((response = communicate(parsed_url)) != NULL){
+		/*
+		delete  parsed_url;
+		url.clear();
+		url.append(response->data());
+		delete response;
+		parsed_url = parse_url(url);
+		if(counter-- <= 0){
+			fprintf(stderr,"The redirections count exceeded the maximun number of 5\n");
+			ret_val = 11;
+			break;
+		}*/
+		break;
+	}
 	delete parsed_url;
 	delete response;
-	return 0;
-
+	return ret_val;
 }

@@ -11,11 +11,11 @@ static const int HEADER_SIZE = 320;
 
 using namespace std;
 
-int parse_ret_val(char *buffer) {
+int parse_ret_val(char *buffer,int bytes_count) {
 	int index = 0;
 	int col = 0;
 	vector<char> val;
-	while (buffer[index] != '\r') {
+	while (buffer[index] != '\r' && index < bytes_count) {
 		if (col == 1) {
 			val.push_back(buffer[index]);
 		}
@@ -24,7 +24,10 @@ int parse_ret_val(char *buffer) {
 		}
 		index++;
 	}
-	return stoi(val.data());
+	if(!val.empty())
+		return stoi(val.data());
+	else
+		return 404;
 }
 
 static vector<char> *remove_header(char *buffer, bool &isChunked) {
@@ -74,7 +77,7 @@ static void print_without_chunk_numbers(vector<char> *data, ofstream &output_fil
 		}
 		i += 2; //skip the "\r\n"
 
-		if(chunk_num.size() == 1 && chunk_num[0] == '0') // no more data to print
+		if (chunk_num.size() == 1 && chunk_num[0] == '0') // no more data to print
 			break;
 
 		// get the size of the current chunk
@@ -92,6 +95,20 @@ static void print_without_chunk_numbers(vector<char> *data, ofstream &output_fil
 	}
 }
 
+vector<char> * parse_next_location(char *buffer) {
+	//cout << buffer << "\n";
+	static const string location_header = "Location: ";
+	char *start_of_url = strstr(buffer, location_header.c_str());
+	start_of_url += location_header.size();
+
+	vector<char> *res = new vector<char>;
+	while (*start_of_url != '\r') {
+		res->push_back(*start_of_url);
+		start_of_url++;
+	}
+	return res;
+}
+
 /**
  * Function parses filename from local_link into result
  * If there is no local_link specified, the filename will be index.html
@@ -105,7 +122,6 @@ void parse_file_name(const string &local_link, string &result) {
 		unsigned long last_slash_index = local_link.find_last_of('/');
 		result.append(local_link.substr(last_slash_index + 1, local_link.size() - last_slash_index + 1));
 	}
-	cout << result;
 }
 
 static std::string create_http_request(const Parsed_url &parsed_url) {
@@ -119,18 +135,20 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
  * Function communicates with specified server using BSD socket
  * @return string - next url to search at, NULL means success
  */
-std::string *communicate(const Parsed_url *parsed_url) {
+std::vector<char> *communicate(const Parsed_url *parsed_url) {
 	int client_socket;
 	std::string msg = create_http_request(*parsed_url);
 
 	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
 		perror("ERROR: socket");
+		delete parsed_url;
 		exit(EXIT_FAILURE);
 	}
 
 	hostent *server = gethostbyname(parsed_url->getDomain().c_str());
 	if (server == NULL) {
 		fprintf(stderr, "ERROR, no such host  as %s.\n", parsed_url->getDomain().c_str());
+		delete parsed_url;
 		exit(EXIT_FAILURE);
 	}
 
@@ -143,6 +161,7 @@ std::string *communicate(const Parsed_url *parsed_url) {
 
 	if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0) {
 		perror("ERROR: connect");
+		delete parsed_url;
 		exit(EXIT_FAILURE);
 	}
 
@@ -151,30 +170,35 @@ std::string *communicate(const Parsed_url *parsed_url) {
 	bytes_count = send(client_socket, msg.c_str(), msg.size(), 0);
 	if (bytes_count < 0) {
 		perror("ERROR: sendto");
+		delete parsed_url;
 		exit(EXIT_FAILURE);
 	}
 
-	char buffer[BUFFER_SIZE];
+	char buffer[BUFFER_SIZE + 1];
 	memset(buffer, 0, BUFFER_SIZE);
 
 	int ret_val;
 	// first process the header
 	if ((bytes_count = recv(client_socket, buffer, HEADER_SIZE, 0)) > 0) {
-		switch (ret_val = parse_ret_val(buffer)) {
+		switch (ret_val = parse_ret_val(buffer,bytes_count)) {
 			case 200:
 				break;
 			case 301:
-			case 302:
-				error("Redirecting not implemented yet", 9);
+				delete parsed_url;
+				error("Redirecting 301 not implemented yet", 9);
 				break;
+			case 302:
+				return parse_next_location(buffer);;
 			case 404:
 				error("Page not found", 8);
 				throw new PageNotFoundException();
 			default:
 				cerr << ret_val << "\n";
+				delete parsed_url;
 				error("Unknown return value", 7);
 		}
 	} else {
+		delete parsed_url;
 		error("No data received", 10);
 	}
 
@@ -193,18 +217,18 @@ std::string *communicate(const Parsed_url *parsed_url) {
 
 
 	if (bytes_count < 0) {
+		delete parsed_url;
 		perror("ERROR: recvfrom");
 		exit(EXIT_FAILURE);
 	}
 	if (close(client_socket) != 0) {
+		delete parsed_url;
 		perror("ERROR: close");
 		exit(EXIT_FAILURE);
 	}
 
 	string file_name;
 	parse_file_name(parsed_url->getLocal_link(), file_name);
-
-	cout << file_name;
 
 
 	// open the file for writing

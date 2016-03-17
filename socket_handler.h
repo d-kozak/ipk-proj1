@@ -15,7 +15,7 @@
 
 #include "url_parser.h"
 
-std::string* communicate(const Parsed_url* parsed_url);
+std::vector<char>* communicate(const Parsed_url* parsed_url);
 
 class PageNotFoundException{};
 

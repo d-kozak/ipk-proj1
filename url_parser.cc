@@ -36,7 +36,6 @@ const std::string &Parsed_url::getLocal_link() const {
 	return Parsed_url::local_link;
 }
 
-
 /**
  * @param url - url to parse
  * @brief function parses given url and returns domain, port num and local url from domain
@@ -48,7 +47,8 @@ Parsed_url* parse_url(std::string& url) {
 
 	// check and remove http://
 	if (url.substr(0, 7).compare("http://") != 0) {
-		error("Given url does not start with http://", 1);
+		std::cerr << url;
+		error(" <---Given url does not start with http://, this program cannout hadle such request", 1);
 	}
 	url.erase(0, 7);
 
