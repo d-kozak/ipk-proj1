@@ -12,4 +12,6 @@
 #include "socket_handler.h"
 #include "helpers.h"
 
+class RedirectionNumberExceededException{};
+
 #endif //IPK_PROJ1_MAIN_H

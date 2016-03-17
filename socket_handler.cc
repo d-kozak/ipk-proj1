@@ -15,7 +15,7 @@ using namespace std;
  * Function parses HTPP response return value
  * @return int HTTP response return value
  */
-int parse_ret_val(char *buffer, ssize_t bytes_count) {
+int parse_ret_val(char *buffer) {
 	static const int CODE_SIZE = 3; // len of the code is constant
 	while(*buffer != ' ') //skip the 'HTTP/1.1 part'
 		buffer++;
@@ -25,7 +25,7 @@ int parse_ret_val(char *buffer, ssize_t bytes_count) {
 	memcpy(code,buffer,CODE_SIZE); //copy the code to separate memory
 	code[3] = '\0'; // just to be sure, end the string
 	char* ptr;
-	int num =(int) strtol(code,&ptr,10); 
+	int num =(int) strtol(code,&ptr,10);
 	if(*ptr != '\0'){
 		cerr << "-" <<*ptr << "-";
 		error("Converting of ret val in response was not successfull",11);
@@ -183,7 +183,7 @@ char* communicate(const Parsed_url *parsed_url) {
 	int ret_val;
 	// first process the header
 	if ((bytes_count = recv(client_socket, buffer, HEADER_SIZE, 0)) > 0) {
-		switch (ret_val = parse_ret_val(buffer, bytes_count)) {
+		switch (ret_val = parse_ret_val(buffer)) {
 			case 200:
 				break;
 			case 301:
