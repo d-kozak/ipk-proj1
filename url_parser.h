@@ -30,4 +30,6 @@ public:
 
 Parsed_url* parse_url(std::string& url);
 
+class InvalidUrlException{};
+
 #endif //IPK_PROJ1_PARSED_URL_H

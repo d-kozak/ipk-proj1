@@ -49,6 +49,7 @@ Parsed_url* parse_url(std::string& url) {
 	if (url.substr(0, 7).compare("http://") != 0) {
 		std::cerr << url;
 		error(" <---Given url does not start with http://, this program cannout hadle such request", 1);
+		throw InvalidUrlException();
 	}
 	url.erase(0, 7);
 

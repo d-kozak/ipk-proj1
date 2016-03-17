@@ -141,15 +141,15 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 
 	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
 		perror("ERROR: socket");
-		delete parsed_url;
-		exit(EXIT_FAILURE);
+		error("",1);
+		throw SocketErrorException();
 	}
 
 	hostent *server = gethostbyname(parsed_url->getDomain().c_str());
 	if (server == NULL) {
 		fprintf(stderr, "ERROR, no such host  as %s.\n", parsed_url->getDomain().c_str());
-		delete parsed_url;
-		exit(EXIT_FAILURE);
+		error("",2);
+		throw SocketErrorException();
 	}
 
 	struct sockaddr_in server_address;
@@ -161,8 +161,8 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 
 	if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0) {
 		perror("ERROR: connect");
-		delete parsed_url;
-		exit(EXIT_FAILURE);
+		error("",3);
+		throw SocketErrorException();
 	}
 
 	ssize_t bytes_count = 0;
@@ -170,8 +170,8 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 	bytes_count = send(client_socket, msg.c_str(), msg.size(), 0);
 	if (bytes_count < 0) {
 		perror("ERROR: sendto");
-		delete parsed_url;
-		exit(EXIT_FAILURE);
+		error("",4);
+		throw SocketErrorException();
 	}
 
 	char buffer[BUFFER_SIZE + 1];
@@ -184,22 +184,21 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 			case 200:
 				break;
 			case 301:
-				delete parsed_url;
 				error("Redirecting 301 not implemented yet", 9);
-				break;
+				throw SocketHandlerInternalException();
 			case 302:
 				return parse_next_location(buffer);;
 			case 404:
 				error("Page not found", 8);
-				throw new PageNotFoundException();
+				throw PageNotFoundException();
 			default:
 				cerr << ret_val << "\n";
-				delete parsed_url;
 				error("Unknown return value", 7);
+				throw SocketHandlerInternalException();
 		}
 	} else {
-		delete parsed_url;
 		error("No data received", 10);
+		throw SocketHandlerInternalException();
 	}
 
 	// get the first part of data
@@ -219,12 +218,14 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 	if (bytes_count < 0) {
 		delete parsed_url;
 		perror("ERROR: recvfrom");
-		exit(EXIT_FAILURE);
+		error("",5);
+		throw SocketErrorException();
 	}
 	if (close(client_socket) != 0) {
 		delete parsed_url;
 		perror("ERROR: close");
-		exit(EXIT_FAILURE);
+		error("",5);
+		throw SocketErrorException();
 	}
 
 	string file_name;
@@ -239,7 +240,6 @@ std::vector<char> *communicate(const Parsed_url *parsed_url) {
 		print_without_chunk_numbers(data, output_file);
 	else
 		output_file << data->data();
-
 
 	output_file.close();
 	return NULL;

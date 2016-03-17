@@ -8,12 +8,14 @@
 #include <iostream>
 #include <stdlib.h>
 
+extern int ret_val;
+
 /**
  * @brief function prints error msg and exits program with given return value
  */
-inline void error(const std::string&& msg, int ret_val) {
+inline void error(const std::string&& msg, int __ret_val) {
 	std::cerr << msg << "\n";
-	exit(ret_val);
+	ret_val = __ret_val;
 }
 
 #endif //IPK_PROJ1_HELPERS_H

@@ -18,5 +18,7 @@
 std::vector<char>* communicate(const Parsed_url* parsed_url);
 
 class PageNotFoundException{};
+class SocketHandlerInternalException {};
+class SocketErrorException{};
 
 #endif //IPK_PROJ1_SOCKET_HANDLER_H
