@@ -4,21 +4,22 @@
 
 #include <vector>
 #include "socket_handler.h"
+#include <fstream>
 
 static const int BUFFER_SIZE = 2048;
 static const int HEADER_SIZE = 320;
 
 using namespace std;
 
-int parse_ret_val(char *buffer){
+int parse_ret_val(char *buffer) {
 	int index = 0;
 	int col = 0;
 	vector<char> val;
-	while(buffer[index] != '\r'){
-		if(col == 1){
+	while (buffer[index] != '\r') {
+		if (col == 1) {
 			val.push_back(buffer[index]);
 		}
-		if(isspace(buffer[index])){
+		if (isspace(buffer[index])) {
 			col++;
 		}
 		index++;
@@ -26,14 +27,17 @@ int parse_ret_val(char *buffer){
 	return stoi(val.data());
 }
 
-vector<char>* remove_header(char *buffer){
-	vector<char>* res = new vector<char>;
+static vector<char> *remove_header(char *buffer, bool &isChunked) {
+	vector<char> *res = new vector<char>;
 	int counter = 0;
-	while(*buffer != '\0'){
-		if(*buffer == '\r'){
+	if (strstr(buffer, "Transfer-Encoding: chunked") != NULL)
+		isChunked = true;
+
+	while (*buffer != '\0') {
+		if (*buffer == '\r') {
 			counter++;
-		} else if(*buffer == '\n'){
-			if(counter == 3) {
+		} else if (*buffer == '\n') {
+			if (counter == 3) {
 				buffer++;
 				break;
 			}
@@ -44,12 +48,64 @@ vector<char>* remove_header(char *buffer){
 		buffer++;
 	}
 
-	while(*buffer != '\0'){
+	while (*buffer != '\0') {
 		res->push_back(*buffer);
 		buffer++;
 	}
 
 	return res;
+}
+
+/**
+ * Function prints the reponse without chunks into file output_file
+ */
+static void print_without_chunk_numbers(vector<char> *data, ofstream &output_file) {
+	long i = 0, end = (int) data->size(), chunk_size;
+	vector<char> chunk_num;
+
+	vector<char> tmp_tester;
+	size_t next_char;
+	// loop through the whole data vector
+	while (i < end) {
+		// parse the chunk size(it always ends with \r\n
+		while ((*data)[i] != '\r') {
+			chunk_num.push_back((*data)[i]);
+			i++;
+		}
+		i += 2; //skip the "\r\n"
+
+		if(chunk_num.size() == 1 && chunk_num[0] == '0') // no more data to print
+			break;
+
+		// get the size of the current chunk
+		chunk_size = stol(chunk_num.data(), &next_char, 16);
+
+		// print current chunk into file
+		for (std::vector<char>::iterator it = data->begin() + i; it != data->begin() + i + chunk_size; ++it) {
+			output_file << *it;
+			tmp_tester.push_back(*it);
+		}
+		//jump to next chunk
+		i += chunk_size + 2;
+		// clear the vector for storing chunk_size;
+		chunk_num.clear();
+	}
+}
+
+/**
+ * Function parses filename from local_link into result
+ * If there is no local_link specified, the filename will be index.html
+ */
+void parse_file_name(const string &local_link, string &result) {
+	result.clear(); //clear the string
+
+	if (local_link == "/") {
+		result.append("index.html");
+	} else {
+		unsigned long last_slash_index = local_link.find_last_of('/');
+		result.append(local_link.substr(last_slash_index + 1, local_link.size() - last_slash_index + 1));
+	}
+	cout << result;
 }
 
 static std::string create_http_request(const Parsed_url &parsed_url) {
@@ -59,7 +115,11 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
 	return message;
 }
 
-std::string* communicate(const Parsed_url* parsed_url){
+/**
+ * Function communicates with specified server using BSD socket
+ * @return string - next url to search at, NULL means success
+ */
+std::string *communicate(const Parsed_url *parsed_url) {
 	int client_socket;
 	std::string msg = create_http_request(*parsed_url);
 
@@ -96,40 +156,41 @@ std::string* communicate(const Parsed_url* parsed_url){
 
 	char buffer[BUFFER_SIZE];
 	memset(buffer, 0, BUFFER_SIZE);
-	std::string* response = new std::string("");
 
 	int ret_val;
 	// first process the header
-	if((bytes_count = recv(client_socket,buffer,HEADER_SIZE,0)) > 0){
-		switch(ret_val = parse_ret_val(buffer)){
+	if ((bytes_count = recv(client_socket, buffer, HEADER_SIZE, 0)) > 0) {
+		switch (ret_val = parse_ret_val(buffer)) {
 			case 200:
 				break;
 			case 301:
 			case 302:
-				error("Redirecting not implemented yet",9);
+				error("Redirecting not implemented yet", 9);
 				break;
 			case 404:
-				error("Page not found",8);
-				break;
+				error("Page not found", 8);
+				throw new PageNotFoundException();
 			default:
 				cerr << ret_val << "\n";
-				error("Unknown return value",7);
+				error("Unknown return value", 7);
 		}
 	} else {
-		error("No data received",10);
+		error("No data received", 10);
 	}
 
-	vector<char>* data = remove_header(buffer);
+	// get the first part of data
+	bool isChunked = false;
+	vector<char> *data = remove_header(buffer, isChunked);
 
-	cout << buffer << "\n";
-	cout << "-------------------------\n";
-	cout << data->data();
-	exit(666);
+	// clear the buffer
+	memset(buffer, 0, BUFFER_SIZE);
 
 	while ((bytes_count = recv(client_socket, buffer, BUFFER_SIZE, 0)) > 0) {
-		response->append(buffer);
+		for (int i = 0; i < bytes_count; i++)
+			data->push_back(buffer[i]);
 		memset(buffer, 0, BUFFER_SIZE);
 	}
+
 
 	if (bytes_count < 0) {
 		perror("ERROR: recvfrom");
@@ -140,7 +201,23 @@ std::string* communicate(const Parsed_url* parsed_url){
 		exit(EXIT_FAILURE);
 	}
 
-	// TODO return the data vector somehow, or use it in some other way
-	return response;
+	string file_name;
+	parse_file_name(parsed_url->getLocal_link(), file_name);
+
+	cout << file_name;
+
+
+	// open the file for writing
+	ofstream output_file;
+	output_file.open(file_name);
+
+	if (isChunked)
+		print_without_chunk_numbers(data, output_file);
+	else
+		output_file << data->data();
+
+
+	output_file.close();
+	return NULL;
 }
 
