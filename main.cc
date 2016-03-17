@@ -49,7 +49,11 @@ int main(int argc, char **argv) {
 			delete parsed_url;
 		if (response != NULL)
 			free(response);
+	} catch (PageNotFoundException &e){
+		if (parsed_url != NULL)
+			delete parsed_url;
+		if (response != NULL)
+			free(response);
 	}
-
 	return ret_val;
 }

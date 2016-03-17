@@ -246,6 +246,7 @@ char *communicate(const Parsed_url *parsed_url) {
 		std::copy(data->begin(),data->end(),std::ostream_iterator<char>(output_file));
 	}
 	output_file.close();
+	delete data;
 	return NULL;
 }
 
