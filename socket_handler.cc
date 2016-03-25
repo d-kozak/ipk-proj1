@@ -40,12 +40,12 @@ int parse_ret_val(char *buffer) {
 /**
  * Function erases header from the response
  */
-static void remove_header(vector<char> &buffer,ssize_t & bytes_count) {
+static void remove_header(vector<char> &buffer, ssize_t &bytes_count) {
 	static const string header_end = "\r\n\r\n"; // specific header end accorting to http protocol
-	char* end = strstr(buffer.data(),header_end.data()); // try to find the end of header
+	char *end = strstr(buffer.data(), header_end.data()); // try to find the end of header
 
-	if(end == NULL){
-		throw BaseException("Deformed header, does not end with two carry + newlines",INTERNAL_ERROR);
+	if (end == NULL) {
+		throw BaseException("Deformed header, does not end with two carry + newlines", INTERNAL_ERROR);
 	}
 
 	unsigned long end_of_head = end - buffer.data() + header_end.size();
@@ -54,7 +54,7 @@ static void remove_header(vector<char> &buffer,ssize_t & bytes_count) {
 	bytes_count -= end_of_head;
 
 	// erase header from response
-	buffer.erase(buffer.begin(),buffer.begin() + end_of_head);
+	buffer.erase(buffer.begin(), buffer.begin() + end_of_head);
 }
 
 /**
@@ -95,44 +95,47 @@ static void print_without_chunk_numbers(vector<char> &data, ofstream &output_fil
 string parse_next_location(vector<char> &response) {
 	static const string location_header = "Location: ";
 
-	char* start_of_location_attribute = strstr(response.data(),location_header.data());
+	char *start_of_location_attribute = strstr(response.data(), location_header.data());
 
-	if(start_of_location_attribute == NULL){
-		throw BaseException("Deformed redirection header, it does not contain info about the next location to look at",INTERNAL_ERROR);
+	if (start_of_location_attribute == NULL) {
+		throw BaseException("Deformed redirection header, it does not contain info about the next location to look at",
+							INTERNAL_ERROR);
 	}
 
-	char* end_of_location_line = strchr(start_of_location_attribute,'\r');
+	char *end_of_location_line = strchr(start_of_location_attribute, '\r');
 	start_of_location_attribute += location_header.size();
 
 	unsigned long startIndex = start_of_location_attribute - response.data();
 	unsigned long endIndex = end_of_location_line - response.data();
 
-	return string(response.begin() + startIndex,response.begin() + endIndex);
+	return string(response.begin() + startIndex, response.begin() + endIndex);
 }
 
 /**
  * Function parses filename from local_link into result
- * If there is no local_link specified, the filename will be index.html
+ * If no local_link is specified, the filename will be index.html
  */
-void parse_file_name(const string &local_link, string &result) {
-	result.clear(); //clear the string
+string parse_file_name(const string &local_link) {
 
 	if (local_link == "/") {
-		result.append("index.html");
+		return "index.html";
 	} else {
+		string file_name;
 		unsigned long last_slash_index = local_link.find_last_of('/');
 		string last_part = local_link.substr(last_slash_index + 1, local_link.size() - last_slash_index + 1);
 
 		unsigned long pos;
 		unsigned long i = 0;
 
+		// check for spaces( %20 is their internal representation)
 		while ((pos = last_part.find("%20")) != string::npos) {
-			result.append(last_part.substr(i, pos) + " ");
+			file_name.append(last_part.substr(i, pos) + " ");
 			i = pos + 3; //jump over the %20
 			last_part = last_part.substr(i, last_part.size());
 		}
 
-		result.append(last_part);
+		file_name.append(last_part);
+		return file_name;
 	}
 }
 
@@ -211,8 +214,8 @@ string communicate(const Parsed_url &parsed_url) {
 	}
 
 	// get the first part of data
-	bool isChunked = strstr(response.data(),"Transfer-Encoding: chunked") != NULL;
-	remove_header(response,bytes_count);
+	bool isChunked = strstr(response.data(), "Transfer-Encoding: chunked") != NULL;
+	remove_header(response, bytes_count);
 
 
 	unsigned long oldSize = 0;
@@ -231,8 +234,7 @@ string communicate(const Parsed_url &parsed_url) {
 		throw BaseException("Closing of socket was not successfull", CLOSE_ERROR);
 	}
 
-	string file_name;
-	parse_file_name(parsed_url.getLocal_link(), file_name);
+	string file_name = parse_file_name(parsed_url.getLocal_link());
 
 
 	// open the file for writing
