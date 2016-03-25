@@ -89,16 +89,25 @@ static void print_without_chunk_numbers(vector<char> &data, ofstream &output_fil
 	}
 }
 
-char *parse_next_location(vector<char> &response) {
+/**
+ * Function parses next location from html response header
+ */
+string parse_next_location(vector<char> &response) {
 	static const string location_header = "Location: ";
-	char *start_of_url = strstr(response.data(), location_header.c_str());
-	start_of_url += location_header.size();
-	char *end_of_url = strchr(start_of_url, '\r');
-	unsigned long url_size = end_of_url - start_of_url;
-	char *res = (char *) malloc(url_size + 1);
-	memcpy(res, start_of_url, url_size);
-	res[url_size] = '\0';
-	return res;
+
+	char* start_of_location_attribute = strstr(response.data(),location_header.data());
+
+	if(start_of_location_attribute == NULL){
+		throw BaseException("Deformed redirection header, it does not contain info about the next location to look at",INTERNAL_ERROR);
+	}
+
+	char* end_of_location_line = strchr(start_of_location_attribute,'\r');
+	start_of_location_attribute += location_header.size();
+
+	unsigned long startIndex = start_of_location_attribute - response.data();
+	unsigned long endIndex = end_of_location_line - response.data();
+
+	return string(response.begin() + startIndex,response.begin() + endIndex);
 }
 
 /**
