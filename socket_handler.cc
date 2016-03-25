@@ -37,60 +37,24 @@ int parse_ret_val(char *buffer) {
 	return num;
 }
 
-static vector<char> remove_header(char *buffer, bool &isChunked, string content_location, ssize_t & bytes_count) {
-	vector<char> res;
-	int new_lines_counter = 0;
-	ssize_t index = 0;
-	if (strstr(buffer, "Transfer-Encoding: chunked") != NULL)
-		isChunked = true;
+/**
+ * Function erases header from the response
+ */
+static void remove_header(vector<char> &buffer,ssize_t & bytes_count) {
+	static const string header_end = "\r\n\r\n"; // specific header end accorting to http protocol
+	char* end = strstr(buffer.data(),header_end.data()); // try to find the end of header
 
-	/*
-	char *begin = NULL;
-	if ((begin = strstr(buffer, "Content-Location: ")) != NULL) {
-		begin += strlen("Content-Location: ");
-		char *end = strchr(begin, '\r');
-
-		*end = '\0';
-
-		content_location.append(begin);
-		cout << content_location;
-		return res;
-	}
-*/
-	bool encouteredZero = false;
-
-	while (true) {
-		if (*buffer == '\0') {
-			if (encouteredZero) {
-				cout << "Encoutered two '0' in sequence\n";
-				break;
-			}
-			else encouteredZero = true;
-		} else
-			encouteredZero = false;
-		if (*buffer == '\r') {
-			new_lines_counter++;
-		} else if (*buffer == '\n') {
-			if (new_lines_counter == 3) {
-				buffer++;
-				break;
-			}
-			else
-				new_lines_counter++;
-		} else
-			new_lines_counter = 0;
-		buffer++;
-		index++;
+	if(end == NULL){
+		throw BaseException("Deformed header, does not end with two carry + newlines",INTERNAL_ERROR);
 	}
 
-	ssize_t tmp = 0;
-	while (index++ < bytes_count - 1) {
-		res.push_back(*buffer);
-		buffer++;
-		tmp++;
-	}
-	bytes_count = tmp;
-	return res;
+	unsigned long end_of_head = end - buffer.data() + header_end.size();
+
+	// remove the head size from bytes count(only the real data will stay in vector,head will be erased
+	bytes_count -= end_of_head;
+
+	// erase header from response
+	buffer.erase(buffer.begin(),buffer.begin() + end_of_head);
 }
 
 /**
@@ -238,20 +202,15 @@ string communicate(const Parsed_url &parsed_url) {
 	}
 
 	// get the first part of data
-	bool isChunked = false;
-	string content_location;
-	vector<char> data = remove_header(response.data(), isChunked, content_location, bytes_count);
-	if (!content_location.empty()) {
-		// TODO the content is not in this response, but now we know its real location
-		//return content_location.data();
-		throw BaseException("NOT IMPLEMENTED YET", INTERNAL_ERROR);
-	}
+	bool isChunked = strstr(response.data(),"Transfer-Encoding: chunked") != NULL;
+	remove_header(response,bytes_count);
+
 
 	unsigned long oldSize = 0;
 	do {
 		oldSize += (unsigned long) bytes_count;
-		data.resize(oldSize + BUFFER_SIZE);
-	} while ((bytes_count = recv(client_socket, data.data() + oldSize, BUFFER_SIZE, 0)) > 0);
+		response.resize(oldSize + BUFFER_SIZE);
+	} while ((bytes_count = recv(client_socket, response.data() + oldSize, BUFFER_SIZE, 0)) > 0);
 
 
 	if (bytes_count < 0) {
@@ -271,9 +230,9 @@ string communicate(const Parsed_url &parsed_url) {
 	ofstream output_file(file_name, std::ios_base::binary);
 
 	if (isChunked)
-		print_without_chunk_numbers(data, output_file);
+		print_without_chunk_numbers(response, output_file);
 	else {
-		std::copy(data.begin(), data.end(), std::ostream_iterator<char>(output_file));
+		std::copy(response.begin(), response.begin() + oldSize, std::ostream_iterator<char>(output_file));
 	}
 	output_file.close();
 	return "";
