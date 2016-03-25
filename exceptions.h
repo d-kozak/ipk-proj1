@@ -6,18 +6,22 @@
 #define IPK_PROJ1_EXCEPTIONS_H
 
 class BaseException {
-};
+	std::string msg;
+	int ret_val;
 
-class InvalidUrlException : public BaseException {
-};
+public:
+	BaseException(std::string msg,int ret_val) : ret_val(ret_val) {
+		this->msg = "ERROR: ";
+		this->msg.append(msg + "\n");
+	}
 
-class PageNotFoundException : public BaseException {
-};
+	const std::string &what() {
+		return this->msg;
+	}
 
-class SocketHandlerInternalException : public BaseException {
-};
-
-class SocketErrorException : public BaseException {
+	int getRetVal(){
+		return this->ret_val;
+	}
 };
 
 #endif //IPK_PROJ1_EXCEPTIONS_H

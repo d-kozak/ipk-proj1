@@ -28,8 +28,7 @@ int parse_ret_val(char *buffer) {
 	int num = (int) strtol(code, &ptr, 10);
 	if (*ptr != '\0') {
 		cerr << "-" << *ptr << "-";
-		error("Converting of ret val in response was not successfull", 11);
-		throw SocketHandlerInternalException();
+		throw BaseException("Converting of ret val in response was not successfull",INTERNAL_ERROR);
 	}
 	return num;
 }
@@ -72,7 +71,6 @@ static void print_without_chunk_numbers(vector<char> *data, ofstream &output_fil
 	long i = 0, end = (int) data->size(), chunk_size;
 	vector<char> chunk_num;
 
-	vector<char> tmp_tester;
 	size_t next_char;
 	// loop through the whole data vector
 	while (i < end) {
@@ -122,7 +120,18 @@ void parse_file_name(const string &local_link, string &result) {
 		result.append("index.html");
 	} else {
 		unsigned long last_slash_index = local_link.find_last_of('/');
-		result.append(local_link.substr(last_slash_index + 1, local_link.size() - last_slash_index + 1));
+		string last_part = local_link.substr(last_slash_index + 1, local_link.size() - last_slash_index + 1);
+
+		unsigned long pos;
+		unsigned long i = 0;
+
+		while((pos = last_part.find("%20")) != string::npos){
+			result.append(last_part.substr(i,pos) + " ");
+			i = pos + 3; //jump over the %20
+			last_part = last_part.substr(i,last_part.size());
+		}
+
+		result.append(last_part);
 	}
 }
 
@@ -132,7 +141,6 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
 	message.append("Connection: close\r\n\r\n");
 	return message;
 }
-
 /**
  * Function communicates with specified server using BSD socket
  * @return string - next url to search at, NULL means success
@@ -143,15 +151,13 @@ char *communicate(const Parsed_url *parsed_url) {
 
 	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
 		perror("ERROR: socket");
-		error("", 1);
-		throw SocketErrorException();
+		throw BaseException("Socket was not created succesfully",SOCKET_ERROR);
 	}
 
 	hostent *server = gethostbyname(parsed_url->getDomain().c_str());
 	if (server == NULL) {
 		fprintf(stderr, "ERROR, no such host  as %s.\n", parsed_url->getDomain().c_str());
-		error("", 2);
-		throw SocketErrorException();
+		throw BaseException("DNS translation was not succesfull",GET_HOST_BY_NAME_ERROR);
 	}
 
 	struct sockaddr_in server_address;
@@ -163,8 +169,7 @@ char *communicate(const Parsed_url *parsed_url) {
 
 	if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0) {
 		perror("ERROR: connect");
-		error("", 3);
-		throw SocketErrorException();
+		throw BaseException("Connection was not started successfully\n",CONNECT_ERROR);
 	}
 
 	ssize_t bytes_count = 0;
@@ -172,8 +177,7 @@ char *communicate(const Parsed_url *parsed_url) {
 	bytes_count = send(client_socket, msg.c_str(), msg.size(), 0);
 	if (bytes_count < 0) {
 		perror("ERROR: sendto");
-		error("", 4);
-		throw SocketErrorException();
+		throw BaseException("Request was not send successfully\n",SEND_ERROR);
 	}
 
 	char buffer[BUFFER_SIZE + 1];
@@ -183,24 +187,19 @@ char *communicate(const Parsed_url *parsed_url) {
 	// first process the header
 	if ((bytes_count = recv(client_socket, buffer, HEADER_SIZE, 0)) > 0) {
 		switch (ret_val = parse_ret_val(buffer)) {
-			case 200:
+			case 200: // ok
 				break;
 			case 301:
-				error("Redirecting 301 not implemented yet", 9);
-				throw SocketHandlerInternalException();
+				throw BaseException("301 Not implemented yet",INTERNAL_ERROR);
 			case 302:
 				return parse_next_location(buffer);
 			case 404:
-				error("Page not found", 8);
-				throw PageNotFoundException();
 			default:
-				cerr << ret_val << "\n";
-				error("Unknown return value", 7);
-				throw SocketHandlerInternalException();
+				std::cerr << "Unknown ret_val " << ret_val << "\n";
+				throw BaseException("Bad ret val",UNIMPLEMENTED_HTTP_RET_VAL);
 		}
 	} else {
-		error("No data received", 10);
-		throw SocketHandlerInternalException();
+		throw BaseException("No data received",RECV_ERROR);
 	}
 
 	// get the first part of data
@@ -220,14 +219,12 @@ char *communicate(const Parsed_url *parsed_url) {
 	if (bytes_count < 0) {
 		delete parsed_url;
 		perror("ERROR: recvfrom");
-		error("", 5);
-		throw SocketErrorException();
+		throw BaseException("The transminsion of data was not successfull",RECV_ERROR);
 	}
 	if (close(client_socket) != 0) {
 		delete parsed_url;
 		perror("ERROR: close");
-		error("", 5);
-		throw SocketErrorException();
+		throw BaseException("Closing of socket was not successfull",CLOSE_ERROR);
 	}
 
 	string file_name;

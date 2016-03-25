@@ -8,15 +8,20 @@
 #include <iostream>
 #include <stdlib.h>
 
-extern int ret_val;
-
-/**
- * @brief function prints error msg and exits program with given return value
- */
-inline void error(const std::string&& msg, int __ret_val) {
-	std::cerr << msg << "\n";
-	ret_val = __ret_val;
-}
+enum ret_val {
+	EOK,
+	WRONG_ARGUMENTS,
+	URL_PARSE_ERROR,
+	SOCKET_ERROR,
+	GET_HOST_BY_NAME_ERROR,
+	CONNECT_ERROR,
+	SEND_ERROR,
+	RECV_ERROR,
+	CLOSE_ERROR,
+	REDIRECTION_EXCEEDED_ERROR,
+	UNIMPLEMENTED_HTTP_RET_VAL,
+	INTERNAL_ERROR
+};
 
 #endif //IPK_PROJ1_HELPERS_H
 

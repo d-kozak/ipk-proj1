@@ -1,11 +1,9 @@
 #include "main.h"
 
-int ret_val = 0;
-
 int main(int argc, char **argv) {
 	if (argc != 2) {
-		error("Wrong number of arguments, please pass only url", 1);
-		return ret_val;
+		std::cerr << "Wrong number of arguments: " << argc << " , please specify only the url and nothing more";
+		return WRONG_ARGUMENTS;
 	}
 	std::string url(argv[1]);
 
@@ -24,16 +22,19 @@ int main(int argc, char **argv) {
 			url.append(response);
 			parsed_url = parse_url(url);
 
-			if (counter-- <= 0)
-				throw new RedirectionNumberExceededException();
+			if (counter-- <= 0){
+				throw BaseException("Max number of redirecting was exceeded",REDIRECTION_EXCEEDED_ERROR);
+			}
 		}
 		delete parsed_url;
 		free(response);
 	} catch (BaseException &e) {
+		std::cerr << e.what();
 		if (parsed_url != NULL)
 			delete parsed_url;
 		if (response != NULL)
 			free(response);
+		return e.getRetVal();
 	}
-	return ret_val;
+	return 0;
 }

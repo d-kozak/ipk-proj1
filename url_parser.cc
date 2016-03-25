@@ -48,8 +48,7 @@ Parsed_url* parse_url(std::string& url) {
 	// check and remove http://
 	if (url.substr(0, 7).compare("http://") != 0) {
 		std::cerr << url;
-		error(" <---Given url does not start with http://, this program cannout hadle such request", 1);
-		throw InvalidUrlException();
+		throw BaseException("Given url " + url  + " is not valid, please check the format\n",URL_PARSE_ERROR);
 	}
 	url.erase(0, 7);
 
@@ -88,7 +87,18 @@ Parsed_url* parse_url(std::string& url) {
 			local_link = local_link.substr(0, question_mark_pos);
 		}
 
-		// TODO add control for 'some\ text.txt'
+		// control for 'some\ text.txt'
+		if(local_link.find(" ") != string::npos){
+			string tmp;
+
+			for(char c : local_link){
+				if(c == ' ')
+					tmp.append("%20");
+				else
+					tmp += c;
+			}
+			local_link = tmp;
+		}
 		result->setLocal_link(local_link);
 	} else {
 		// there is no specified local link, --> use  the "/" instead
@@ -96,5 +106,4 @@ Parsed_url* parse_url(std::string& url) {
 	}
 
 	return result;
-
 }
