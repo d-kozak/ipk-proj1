@@ -11,6 +11,10 @@ static const int HEADER_SIZE = 320;
 
 using namespace std;
 
+static inline bool is_version_10(char buffer[]) {
+	return buffer[7] == '0';
+}
+
 /**
  * Function parses HTPP response return value
  * @return int HTTP response return value
@@ -28,19 +32,29 @@ int parse_ret_val(char *buffer) {
 	int num = (int) strtol(code, &ptr, 10);
 	if (*ptr != '\0') {
 		cerr << "-" << *ptr << "-";
-		throw BaseException("Converting of ret val in response was not successfull",INTERNAL_ERROR);
+		throw BaseException("Converting of ret val in response was not successfull", INTERNAL_ERROR);
 	}
 	return num;
 }
 
-static vector<char> *remove_header(char *buffer, bool &isChunked,ssize_t bytes_count) {
+static vector<char> *remove_header(char *buffer, bool &isChunked, ssize_t bytes_count) {
 	vector<char> *res = new vector<char>;
 	int new_lines_counter = 0;
 	ssize_t index = 0;
 	if (strstr(buffer, "Transfer-Encoding: chunked") != NULL)
 		isChunked = true;
 
-	while (true/*buffer != '\0'*/) {
+	bool encouteredZero = false;
+
+	while (true) {
+		if (*buffer == '\0') {
+			if (encouteredZero) {
+				cout << "Encoutered two '0' in sequence\n";
+				break;
+			}
+			else encouteredZero = true;
+		} else
+			encouteredZero = false;
 		if (*buffer == '\r') {
 			new_lines_counter++;
 		} else if (*buffer == '\n') {
@@ -87,7 +101,7 @@ static void print_without_chunk_numbers(vector<char> *data, ofstream &output_fil
 		// get the size of the current chunk
 		chunk_size = stol(chunk_num.data(), &next_char, 16);
 
-		std::copy(data->begin() + i,data->begin() + i + chunk_size,std::ostream_iterator<char>(output_file));
+		std::copy(data->begin() + i, data->begin() + i + chunk_size, std::ostream_iterator<char>(output_file));
 
 		//jump to next chunk
 		i += chunk_size + 2;
@@ -97,7 +111,6 @@ static void print_without_chunk_numbers(vector<char> *data, ofstream &output_fil
 }
 
 char *parse_next_location(char *buffer) {
-	//cout << buffer << "\n";
 	static const string location_header = "Location: ";
 	char *start_of_url = strstr(buffer, location_header.c_str());
 	start_of_url += location_header.size();
@@ -125,10 +138,10 @@ void parse_file_name(const string &local_link, string &result) {
 		unsigned long pos;
 		unsigned long i = 0;
 
-		while((pos = last_part.find("%20")) != string::npos){
-			result.append(last_part.substr(i,pos) + " ");
+		while ((pos = last_part.find("%20")) != string::npos) {
+			result.append(last_part.substr(i, pos) + " ");
 			i = pos + 3; //jump over the %20
-			last_part = last_part.substr(i,last_part.size());
+			last_part = last_part.substr(i, last_part.size());
 		}
 
 		result.append(last_part);
@@ -141,6 +154,7 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
 	message.append("Connection: close\r\n\r\n");
 	return message;
 }
+
 /**
  * Function communicates with specified server using BSD socket
  * @return string - next url to search at, NULL means success
@@ -151,13 +165,13 @@ char *communicate(const Parsed_url *parsed_url) {
 
 	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
 		perror("ERROR: socket");
-		throw BaseException("Socket was not created succesfully",SOCKET_ERROR);
+		throw BaseException("Socket was not created succesfully", SOCKET_ERROR);
 	}
 
 	hostent *server = gethostbyname(parsed_url->getDomain().c_str());
 	if (server == NULL) {
 		fprintf(stderr, "ERROR, no such host  as %s.\n", parsed_url->getDomain().c_str());
-		throw BaseException("DNS translation was not succesfull",GET_HOST_BY_NAME_ERROR);
+		throw BaseException("DNS translation was not succesfull", GET_HOST_BY_NAME_ERROR);
 	}
 
 	struct sockaddr_in server_address;
@@ -169,7 +183,7 @@ char *communicate(const Parsed_url *parsed_url) {
 
 	if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0) {
 		perror("ERROR: connect");
-		throw BaseException("Connection was not started successfully\n",CONNECT_ERROR);
+		throw BaseException("Connection was not started successfully\n", CONNECT_ERROR);
 	}
 
 	ssize_t bytes_count = 0;
@@ -177,7 +191,7 @@ char *communicate(const Parsed_url *parsed_url) {
 	bytes_count = send(client_socket, msg.c_str(), msg.size(), 0);
 	if (bytes_count < 0) {
 		perror("ERROR: sendto");
-		throw BaseException("Request was not send successfully\n",SEND_ERROR);
+		throw BaseException("Request was not send successfully\n", SEND_ERROR);
 	}
 
 	char buffer[BUFFER_SIZE + 1];
@@ -186,25 +200,30 @@ char *communicate(const Parsed_url *parsed_url) {
 	int ret_val;
 	// first process the header
 	if ((bytes_count = recv(client_socket, buffer, HEADER_SIZE, 0)) > 0) {
+		if (is_version_10(buffer)) {
+			cerr << "This is 1.0 ! :O";
+			exit(UNIMPLEMENTED_HTTP_RET_VAL);
+		}
+
 		switch (ret_val = parse_ret_val(buffer)) {
 			case 200: // ok
 				break;
 			case 301:
-				throw BaseException("301 Not implemented yet",INTERNAL_ERROR);
+				cout << buffer;
+				throw BaseException("301 Not implemented yet", INTERNAL_ERROR);
 			case 302:
 				return parse_next_location(buffer);
-			case 404:
 			default:
-				std::cerr << "Unknown ret_val " << ret_val << "\n";
-				throw BaseException("Bad ret val",UNIMPLEMENTED_HTTP_RET_VAL);
+				std::cerr << "RET VAL: " << ret_val << "\n";
+				throw BaseException("HTTP ERROR", UNIMPLEMENTED_HTTP_RET_VAL);
 		}
 	} else {
-		throw BaseException("No data received",RECV_ERROR);
+		throw BaseException("No data received", RECV_ERROR);
 	}
 
 	// get the first part of data
 	bool isChunked = false;
-	vector<char> *data = remove_header(buffer, isChunked,bytes_count);
+	vector<char> *data = remove_header(buffer, isChunked, bytes_count);
 
 	// clear the buffer
 	memset(buffer, 0, BUFFER_SIZE);
@@ -219,12 +238,12 @@ char *communicate(const Parsed_url *parsed_url) {
 	if (bytes_count < 0) {
 		delete parsed_url;
 		perror("ERROR: recvfrom");
-		throw BaseException("The transminsion of data was not successfull",RECV_ERROR);
+		throw BaseException("The transminsion of data was not successfull", RECV_ERROR);
 	}
 	if (close(client_socket) != 0) {
 		delete parsed_url;
 		perror("ERROR: close");
-		throw BaseException("Closing of socket was not successfull",CLOSE_ERROR);
+		throw BaseException("Closing of socket was not successfull", CLOSE_ERROR);
 	}
 
 	string file_name;
@@ -232,12 +251,12 @@ char *communicate(const Parsed_url *parsed_url) {
 
 
 	// open the file for writing
-	ofstream output_file(file_name,std::ios_base::binary);
+	ofstream output_file(file_name, std::ios_base::binary);
 
 	if (isChunked)
 		print_without_chunk_numbers(data, output_file);
 	else {
-		std::copy(data->begin(),data->end(),std::ostream_iterator<char>(output_file));
+		std::copy(data->begin(), data->end(), std::ostream_iterator<char>(output_file));
 	}
 	output_file.close();
 	delete data;
