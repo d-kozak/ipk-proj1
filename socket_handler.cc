@@ -11,8 +11,8 @@ static const int HEADER_SIZE = 320;
 
 using namespace std;
 
-static inline bool is_version_10(char buffer[]) {
-	return buffer[7] == '0';
+static inline bool is_version_10(vector<char> &response) {
+	return response[7] == '0';
 }
 
 /**
@@ -37,7 +37,7 @@ int parse_ret_val(char *buffer) {
 	return num;
 }
 
-static vector<char> remove_header(char *buffer, bool &isChunked, string content_location, ssize_t bytes_count) {
+static vector<char> remove_header(char *buffer, bool &isChunked, string content_location, ssize_t & bytes_count) {
 	vector<char> res;
 	int new_lines_counter = 0;
 	ssize_t index = 0;
@@ -83,11 +83,13 @@ static vector<char> remove_header(char *buffer, bool &isChunked, string content_
 		index++;
 	}
 
+	ssize_t tmp = 0;
 	while (index++ < bytes_count - 1) {
 		res.push_back(*buffer);
 		buffer++;
+		tmp++;
 	}
-
+	bytes_count = tmp;
 	return res;
 }
 
@@ -123,9 +125,9 @@ static void print_without_chunk_numbers(vector<char> &data, ofstream &output_fil
 	}
 }
 
-char *parse_next_location(char *buffer) {
+char *parse_next_location(vector<char> &response) {
 	static const string location_header = "Location: ";
-	char *start_of_url = strstr(buffer, location_header.c_str());
+	char *start_of_url = strstr(response.data(), location_header.c_str());
 	start_of_url += location_header.size();
 	char *end_of_url = strchr(start_of_url, '\r');
 	unsigned long url_size = end_of_url - start_of_url;
@@ -207,25 +209,26 @@ string communicate(const Parsed_url &parsed_url) {
 		throw BaseException("Request was not send successfully\n", SEND_ERROR);
 	}
 
-	char buffer[BUFFER_SIZE + 1];
-	memset(buffer, 0, BUFFER_SIZE);
+
+	vector<char> response;
+	response.resize(BUFFER_SIZE);
 
 	int ret_val;
 	// first process the header
-	if ((bytes_count = recv(client_socket, buffer, HEADER_SIZE, 0)) > 0) {
-		if (is_version_10(buffer)) {
+	if ((bytes_count = recv(client_socket, response.data(), HEADER_SIZE, 0)) > 0) {
+		if (is_version_10(response)) {
 			cerr << "This is 1.0 ! :O";
 			exit(UNIMPLEMENTED_HTTP_RET_VAL);
 		}
 
-		switch (ret_val = parse_ret_val(buffer)) {
+		switch (ret_val = parse_ret_val(response.data())) {
 			case 200: // ok
 				break;
 			case 301:
-				cout << buffer;
+				cout << response.data();
 				throw BaseException("301 Not implemented yet", INTERNAL_ERROR);
 			case 302:
-				return parse_next_location(buffer);
+				return parse_next_location(response);
 			default:
 				std::cerr << "RET VAL: " << ret_val << "\n";
 				throw BaseException("HTTP ERROR", UNIMPLEMENTED_HTTP_RET_VAL);
@@ -237,21 +240,18 @@ string communicate(const Parsed_url &parsed_url) {
 	// get the first part of data
 	bool isChunked = false;
 	string content_location;
-	vector<char> data = remove_header(buffer, isChunked, content_location, bytes_count);
+	vector<char> data = remove_header(response.data(), isChunked, content_location, bytes_count);
 	if (!content_location.empty()) {
 		// TODO the content is not in this response, but now we know its real location
 		//return content_location.data();
 		throw BaseException("NOT IMPLEMENTED YET", INTERNAL_ERROR);
 	}
 
-	// clear the buffer
-	memset(buffer, 0, BUFFER_SIZE);
-
-	while ((bytes_count = recv(client_socket, buffer, BUFFER_SIZE, 0)) > 0) {
-		for (int i = 0; i < bytes_count; i++)
-			data.push_back(buffer[i]);
-		memset(buffer, 0, BUFFER_SIZE);
-	}
+	unsigned long oldSize = 0;
+	do {
+		oldSize += (unsigned long) bytes_count;
+		data.resize(oldSize + BUFFER_SIZE);
+	} while ((bytes_count = recv(client_socket, data.data() + oldSize, BUFFER_SIZE, 0)) > 0);
 
 
 	if (bytes_count < 0) {
