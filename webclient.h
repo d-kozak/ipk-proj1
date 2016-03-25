@@ -10,6 +10,6 @@
 
 #include "url_parser.h"
 #include "socket_handler.h"
-#include "helpers.h"
+#include "globals.h"
 
 #endif //IPK_PROJ1_MAIN_H

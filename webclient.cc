@@ -1,4 +1,4 @@
-#include "main.h"
+#include "webclient.h"
 
 int main(int argc, char **argv) {
 	if (argc != 2) {
@@ -7,15 +7,12 @@ int main(int argc, char **argv) {
 	}
 	std::string url(argv[1]);
 
-	char *response = NULL;
-	Parsed_url *parsed_url = NULL;
+	std::string response;
 
 	try {
-		parsed_url = parse_url(url);
+		Parsed_url parsed_url = parse_url(url);
 		int counter = 5;
-		while ((response = communicate(parsed_url)) != NULL) {
-			delete parsed_url; // first get rid of old instance
-			parsed_url = NULL;
+		while (!(response = communicate(parsed_url)).empty()) {
 
 			// now clear the url string and reuse it to call parse_url again
 			url.clear();
@@ -26,14 +23,8 @@ int main(int argc, char **argv) {
 				throw BaseException("Max number of redirecting was exceeded",REDIRECTION_EXCEEDED_ERROR);
 			}
 		}
-		delete parsed_url;
-		free(response);
 	} catch (BaseException &e) {
 		std::cerr << e.what();
-		if (parsed_url != NULL)
-			delete parsed_url;
-		if (response != NULL)
-			free(response);
 		return e.getRetVal();
 	}
 	return 0;

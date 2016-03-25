@@ -37,13 +37,26 @@ int parse_ret_val(char *buffer) {
 	return num;
 }
 
-static vector<char> *remove_header(char *buffer, bool &isChunked, ssize_t bytes_count) {
-	vector<char> *res = new vector<char>;
+static vector<char> remove_header(char *buffer, bool &isChunked, string content_location, ssize_t bytes_count) {
+	vector<char> res;
 	int new_lines_counter = 0;
 	ssize_t index = 0;
 	if (strstr(buffer, "Transfer-Encoding: chunked") != NULL)
 		isChunked = true;
 
+	/*
+	char *begin = NULL;
+	if ((begin = strstr(buffer, "Content-Location: ")) != NULL) {
+		begin += strlen("Content-Location: ");
+		char *end = strchr(begin, '\r');
+
+		*end = '\0';
+
+		content_location.append(begin);
+		cout << content_location;
+		return res;
+	}
+*/
 	bool encouteredZero = false;
 
 	while (true) {
@@ -71,7 +84,7 @@ static vector<char> *remove_header(char *buffer, bool &isChunked, ssize_t bytes_
 	}
 
 	while (index++ < bytes_count - 1) {
-		res->push_back(*buffer);
+		res.push_back(*buffer);
 		buffer++;
 	}
 
@@ -81,16 +94,16 @@ static vector<char> *remove_header(char *buffer, bool &isChunked, ssize_t bytes_
 /**
  * Function prints the reponse without chunks into file output_file
  */
-static void print_without_chunk_numbers(vector<char> *data, ofstream &output_file) {
-	long i = 0, end = (int) data->size(), chunk_size;
+static void print_without_chunk_numbers(vector<char> &data, ofstream &output_file) {
+	long i = 0, end = (int) data.size(), chunk_size;
 	vector<char> chunk_num;
 
 	size_t next_char;
 	// loop through the whole data vector
 	while (i < end) {
 		// parse the chunk size(it always ends with \r\n
-		while ((*data)[i] != '\r') {
-			chunk_num.push_back((*data)[i]);
+		while (data[i] != '\r') {
+			chunk_num.push_back(data[i]);
 			i++;
 		}
 		i += 2; //skip the "\r\n"
@@ -101,7 +114,7 @@ static void print_without_chunk_numbers(vector<char> *data, ofstream &output_fil
 		// get the size of the current chunk
 		chunk_size = stol(chunk_num.data(), &next_char, 16);
 
-		std::copy(data->begin() + i, data->begin() + i + chunk_size, std::ostream_iterator<char>(output_file));
+		std::copy(data.begin() + i, data.begin() + i + chunk_size, std::ostream_iterator<char>(output_file));
 
 		//jump to next chunk
 		i += chunk_size + 2;
@@ -159,18 +172,18 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
  * Function communicates with specified server using BSD socket
  * @return string - next url to search at, NULL means success
  */
-char *communicate(const Parsed_url *parsed_url) {
+string communicate(const Parsed_url &parsed_url) {
 	int client_socket;
-	std::string msg = create_http_request(*parsed_url);
+	std::string msg = create_http_request(parsed_url);
 
 	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
 		perror("ERROR: socket");
 		throw BaseException("Socket was not created succesfully", SOCKET_ERROR);
 	}
 
-	hostent *server = gethostbyname(parsed_url->getDomain().c_str());
+	hostent *server = gethostbyname(parsed_url.getDomain().c_str());
 	if (server == NULL) {
-		fprintf(stderr, "ERROR, no such host  as %s.\n", parsed_url->getDomain().c_str());
+		fprintf(stderr, "ERROR, no such host  as %s.\n", parsed_url.getDomain().c_str());
 		throw BaseException("DNS translation was not succesfull", GET_HOST_BY_NAME_ERROR);
 	}
 
@@ -179,7 +192,7 @@ char *communicate(const Parsed_url *parsed_url) {
 	server_address.sin_family = AF_INET;
 	bcopy((char *) server->h_addr, (char *) &server_address.sin_addr.s_addr, (size_t) server->h_length);
 
-	server_address.sin_port = htons((uint16_t) parsed_url->getPort());
+	server_address.sin_port = htons((uint16_t) parsed_url.getPort());
 
 	if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0) {
 		perror("ERROR: connect");
@@ -223,31 +236,35 @@ char *communicate(const Parsed_url *parsed_url) {
 
 	// get the first part of data
 	bool isChunked = false;
-	vector<char> *data = remove_header(buffer, isChunked, bytes_count);
+	string content_location;
+	vector<char> data = remove_header(buffer, isChunked, content_location, bytes_count);
+	if (!content_location.empty()) {
+		// TODO the content is not in this response, but now we know its real location
+		//return content_location.data();
+		throw BaseException("NOT IMPLEMENTED YET", INTERNAL_ERROR);
+	}
 
 	// clear the buffer
 	memset(buffer, 0, BUFFER_SIZE);
 
 	while ((bytes_count = recv(client_socket, buffer, BUFFER_SIZE, 0)) > 0) {
 		for (int i = 0; i < bytes_count; i++)
-			data->push_back(buffer[i]);
+			data.push_back(buffer[i]);
 		memset(buffer, 0, BUFFER_SIZE);
 	}
 
 
 	if (bytes_count < 0) {
-		delete parsed_url;
 		perror("ERROR: recvfrom");
 		throw BaseException("The transminsion of data was not successfull", RECV_ERROR);
 	}
 	if (close(client_socket) != 0) {
-		delete parsed_url;
 		perror("ERROR: close");
 		throw BaseException("Closing of socket was not successfull", CLOSE_ERROR);
 	}
 
 	string file_name;
-	parse_file_name(parsed_url->getLocal_link(), file_name);
+	parse_file_name(parsed_url.getLocal_link(), file_name);
 
 
 	// open the file for writing
@@ -256,10 +273,9 @@ char *communicate(const Parsed_url *parsed_url) {
 	if (isChunked)
 		print_without_chunk_numbers(data, output_file);
 	else {
-		std::copy(data->begin(), data->end(), std::ostream_iterator<char>(output_file));
+		std::copy(data.begin(), data.end(), std::ostream_iterator<char>(output_file));
 	}
 	output_file.close();
-	delete data;
-	return NULL;
+	return "";
 }
 

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "helpers.h"
+#include "globals.h"
 #include "exceptions.h"
 
 class Parsed_url {
@@ -29,6 +29,6 @@ public:
 	int getPort() const;
 };
 
-Parsed_url* parse_url(std::string& url);
+Parsed_url parse_url(std::string& url);
 
 #endif //IPK_PROJ1_PARSED_URL_H
