@@ -31,4 +31,6 @@ public:
 
 Parsed_url parse_url(std::string& url);
 
+const std::string parse_file_name(const std::string &local_link);
+
 #endif //IPK_PROJ1_PARSED_URL_H

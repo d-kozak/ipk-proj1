@@ -18,6 +18,6 @@
 #include "url_parser.h"
 #include "exceptions.h"
 
-std::string communicate(const Parsed_url& parsed_url);
+std::string communicate(const Parsed_url& parsed_url,const std::string& file_name);
 
 #endif //IPK_PROJ1_SOCKET_HANDLER_H

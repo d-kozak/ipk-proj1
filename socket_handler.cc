@@ -111,34 +111,6 @@ string parse_next_location(vector<char> &response) {
 	return string(response.begin() + startIndex, response.begin() + endIndex);
 }
 
-/**
- * Function parses filename from local_link into result
- * If no local_link is specified, the filename will be index.html
- */
-string parse_file_name(const string &local_link) {
-
-	if (local_link == "/") {
-		return "index.html";
-	} else {
-		string file_name;
-		unsigned long last_slash_index = local_link.find_last_of('/');
-		string last_part = local_link.substr(last_slash_index + 1, local_link.size() - last_slash_index + 1);
-
-		unsigned long pos;
-		unsigned long i = 0;
-
-		// check for spaces( %20 is their internal representation)
-		while ((pos = last_part.find("%20")) != string::npos) {
-			file_name.append(last_part.substr(i, pos) + " ");
-			i = pos + 3; //jump over the %20
-			last_part = last_part.substr(i, last_part.size());
-		}
-
-		file_name.append(last_part);
-		return file_name;
-	}
-}
-
 static std::string create_http_request(const Parsed_url &parsed_url) {
 	std::string message = "GET " + parsed_url.getLocal_link() + " HTTP/1.1\r\n";
 	message.append("Host: " + parsed_url.getDomain() + "\r\n");
@@ -150,7 +122,7 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
  * Function communicates with specified server using BSD socket
  * @return string - next url to search at, NULL means success
  */
-string communicate(const Parsed_url &parsed_url) {
+string communicate(const Parsed_url &parsed_url,const string& file_name) {
 	int client_socket;
 	std::string msg = create_http_request(parsed_url);
 
@@ -233,8 +205,6 @@ string communicate(const Parsed_url &parsed_url) {
 		perror("ERROR: close");
 		throw BaseException("Closing of socket was not successfull", CLOSE_ERROR);
 	}
-
-	string file_name = parse_file_name(parsed_url.getLocal_link());
 
 
 	// open the file for writing

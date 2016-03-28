@@ -4,6 +4,8 @@
 
 #include "url_parser.h"
 
+using namespace std;
+
 Parsed_url::Parsed_url(){}
 Parsed_url::Parsed_url(const std::string &domain, const std::string &local_link, int port) : domain(domain),
 																				 local_link(local_link), port(port) { }
@@ -106,4 +108,32 @@ Parsed_url parse_url(std::string& url) {
 	}
 
 	return result;
+}
+
+/**
+ * Function parses filename from local_link into result
+ * If no local_link is specified, the filename will be index.html
+ */
+const string parse_file_name(const string &local_link) {
+
+	if (local_link == "/") {
+		return "index.html";
+	} else {
+		string file_name;
+		unsigned long last_slash_index = local_link.find_last_of('/');
+		string last_part = local_link.substr(last_slash_index + 1, local_link.size() - last_slash_index + 1);
+
+		unsigned long pos;
+		unsigned long i = 0;
+
+		// check for spaces( %20 is their internal representation)
+		while ((pos = last_part.find("%20")) != string::npos) {
+			file_name.append(last_part.substr(i, pos) + " ");
+			i = pos + 3; //jump over the %20
+			last_part = last_part.substr(i, last_part.size());
+		}
+
+		file_name.append(last_part);
+		return file_name;
+	}
 }
