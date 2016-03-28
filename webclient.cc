@@ -9,6 +9,7 @@ int main(int argc, char **argv) {
 
 	std::string url(argv[1]);
 
+	const std::string file_name = parse_file_name(url);
 	RedirHandler redirHandler;
 
 	if(redirHandler.check_for_redir(url))
@@ -18,7 +19,6 @@ int main(int argc, char **argv) {
 
 	try {
 		Parsed_url parsed_url = parse_url(url);
-		const std::string file_name = parse_file_name(parsed_url.getLocal_link());
 		int counter = 5;
 		while (!(response = communicate(parsed_url,file_name,redirHandler)).empty()) {
 
