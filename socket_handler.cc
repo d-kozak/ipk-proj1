@@ -122,7 +122,7 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
  * Function communicates with specified server using BSD socket
  * @return string - next url to search at, NULL means success
  */
-string communicate(const Parsed_url &parsed_url,const string& file_name) {
+string communicate(const Parsed_url &parsed_url, const string &file_name, RedirHandler &redirHandler) {
 	int client_socket;
 	std::string msg = create_http_request(parsed_url);
 
@@ -172,9 +172,12 @@ string communicate(const Parsed_url &parsed_url,const string& file_name) {
 		switch (ret_val = parse_ret_val(response.data())) {
 			case 200: // ok
 				break;
-			case 301:
-				// TODO remmember old redirections
-				return parse_next_location(response);
+			case 301:{
+				string next_location = parse_next_location(response);
+				redirHandler.save_new_redirection("http://" + parsed_url.getDomain() + parsed_url.getLocal_link(),
+												  next_location);
+				return next_location;
+			}
 			case 302:
 				return parse_next_location(response);
 			default:
