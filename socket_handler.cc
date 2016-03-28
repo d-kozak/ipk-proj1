@@ -201,8 +201,8 @@ string communicate(const Parsed_url &parsed_url) {
 			case 200: // ok
 				break;
 			case 301:
-				cout << response.data();
-				throw BaseException("301 Not implemented yet", INTERNAL_ERROR);
+				// TODO remmember old redirections
+				return parse_next_location(response);
 			case 302:
 				return parse_next_location(response);
 			default:
