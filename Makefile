@@ -1,7 +1,7 @@
 #Makefile pro projekt do IPK  - http client
 
 #prekladac c
-CC=g++
+CC=clang++
 
 #mira optimalizace
 OPT=-O2
