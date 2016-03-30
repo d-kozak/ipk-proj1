@@ -49,7 +49,6 @@ Parsed_url parse_url(std::string& url) {
 
 	// check and remove http://
 	if (url.substr(0, 7).compare("http://") != 0) {
-		std::cerr << url;
 		throw BaseException("Given url " + url  + " is not valid, please check the format\n",URL_PARSE_ERROR);
 	}
 	url.erase(0, 7);

@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
 			}
 		}
 	} catch (BaseException &e) {
-		std::cerr << e.what();
+		std::cerr << e.what() << std::endl;
 		return e.getRetVal();
 	}
 	return 0;
