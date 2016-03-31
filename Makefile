@@ -30,8 +30,7 @@ ${program}: ${OBJ}
 ${OBJ}: ${HEAD}
 
 distrib:
-	zip xkozak15.zip ${HEAD} ${SRC} Makefile
-
+	tar -cvzf xkozak15.tar.gz ${HEAD} ${SRC}  Makefile
 clean:
 	rm -f *.o ${program}
 	rm -f xkozak15.zip
