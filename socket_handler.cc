@@ -92,7 +92,7 @@ static void print_without_chunk_numbers(vector<char> &data, ofstream &output_fil
 /**
  * Function parses next location from html response header
  */
-void parse_next_location(vector<char> &response) {
+void parse_next_location(vector<char> &response,const Parsed_url & parsed_url) {
 	static const string location_header = "Location: ";
 
 	char *start_of_location_attribute = strstr(response.data(), location_header.data());
@@ -113,6 +113,12 @@ void parse_next_location(vector<char> &response) {
 
 	response.resize(endIndex + 1);
 	response.at(endIndex) = '\0';
+	string http = "http://";
+	http.append(parsed_url.getDomain());
+	if(strstr(response.data(),http.data()) == NULL){
+		// if the link was local we need to specify the abs address
+		response.insert(response.begin(),http.begin(),http.end());
+	}
 }
 
 static std::string create_http_1_0_request(const Parsed_url &parsed_url) {
@@ -208,22 +214,17 @@ static long get_response(int socket, RedirHandler &redirHandler,
 	int ret_val;
 	// first process the header
 	if ((bytes_count = recv(socket, response.data(), HEADER_SIZE, 0)) > 0) {
-		if (is_version_10(response) && parse_ret_val(response.data()) != 200) {
-			cerr << "This is 1.0 ! :O";
-			exit(UNIMPLEMENTED_HTTP_RET_VAL);
-		}
-
 		switch (ret_val = parse_ret_val(response.data())) {
 			case 200: // ok
 				break;
 			case 301: {
-				parse_next_location(response);
+				parse_next_location(response,parsed_url);
 				redirHandler.save_new_redirection("http://" + parsed_url.getDomain() + parsed_url.getLocal_link(),
 												  response.data());
 				return REDIRECTION;
 			}
 			case 302: {
-				parse_next_location(response);
+				parse_next_location(response,parsed_url);
 				return REDIRECTION;
 			}
 			case 400:
