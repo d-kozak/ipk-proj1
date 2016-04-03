@@ -33,4 +33,4 @@ distrib:
 	tar -cvzf xkozak15.tar.gz ${HEAD} ${SRC}  Makefile
 clean:
 	rm -f *.o ${program}
-	rm -f xkozak15.zip
+	rm -f xkozak15.tar.gz

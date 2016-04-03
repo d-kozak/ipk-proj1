@@ -92,11 +92,11 @@ Parsed_url parse_url(std::string& url) {
 		if(local_link.find(" ") != string::npos){
 			string tmp;
 
-			for(char c : local_link){
-				if(c == ' ')
+			for(string::iterator c = local_link.begin() ; c != local_link.end() ; c++){
+				if(*c == ' ')
 					tmp.append("%20");
 				else
-					tmp += c;
+					tmp += *c;
 			}
 			local_link = tmp;
 		}
@@ -115,8 +115,9 @@ Parsed_url parse_url(std::string& url) {
  */
 const string parse_file_name(const string &local_link) {
 
-	// check wheter the file name was specified(the url does not end with '/'
-	if (local_link.find_last_of('/') == local_link.size() - 1) {
+	// check wheter the file name was specified(the url does not end with '/' or the last slash is in 'http://' or it is not there at all
+	unsigned long last_slash_index = local_link.find_last_of('/');
+	if (last_slash_index == local_link.size() - 1 || last_slash_index == 6 || last_slash_index == string::npos) {
 		return "index.html";
 	} else {
 		string file_name;
