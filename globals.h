@@ -19,30 +19,9 @@ enum ret_val {
 	RECV_ERROR,
 	CLOSE_ERROR,
 	REDIRECTION_EXCEEDED_ERROR,
+	FILE_NOT_OPENED,
 	UNIMPLEMENTED_HTTP_RET_VAL,
 	INTERNAL_ERROR
 };
 
 #endif //IPK_PROJ1_HELPERS_H
-
-
-
-/*	std::string url = "www.nic.cz";
-
-	std::string msg = "GET / HTTP/1.1\r\n"
-			"Host: www.nic.cz\r\n"
-			"Connection: close\r\n\r\n";
-	msg.append(url);
-	msg.append("\n");
-	msg.append("Connection: close\n");
-	msg.append("Accept: n");
-msg.append("Content-Length: 0\n");
-msg.append("Content-Type: application/x-www-form-urlencoded\n");
-
-std::string msg = "GET / HTTP/1.1\n"
-		"Host: www.seznam.cz\n"
-		"Accept: \n"
-		"Content-Length: 0\n"
-		"Content-Type: application/x-www-form-urlencoded\n";
-std::cout << msg;
-uint16_t port_number = 80;*/

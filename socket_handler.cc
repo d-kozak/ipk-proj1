@@ -4,7 +4,6 @@
 
 #include <vector>
 #include "socket_handler.h"
-#include <fstream>
 
 static const int BUFFER_SIZE = 2048;
 static const int HEADER_SIZE = 320;
@@ -38,10 +37,10 @@ int parse_ret_val(char *buffer) {
 }
 
 /**
- * Function erases header from the response
+ * Function removes header from the response
  */
-static void remove_header(vector<char> &buffer, ssize_t &bytes_count) {
-	static const string header_end = "\r\n\r\n"; // specific header end accorting to http protocol
+static void remove_header(vector<char> &buffer) {
+	static const string header_end = "\r\n\r\n"; // specific header end according to http protocol
 	char *end = strstr(buffer.data(), header_end.data()); // try to find the end of header
 
 	if (end == NULL) {
@@ -49,9 +48,6 @@ static void remove_header(vector<char> &buffer, ssize_t &bytes_count) {
 	}
 
 	unsigned long end_of_head = end - buffer.data() + header_end.size();
-
-	// remove the head size from bytes count(only the real data will stay in vector,head will be erased
-	bytes_count -= end_of_head;
 
 	// erase header from response
 	buffer.erase(buffer.begin(), buffer.begin() + end_of_head);
@@ -92,7 +88,7 @@ static void print_without_chunk_numbers(vector<char> &data, ofstream &output_fil
 /**
  * Function parses next location from html response header
  */
-string parse_next_location(vector<char> &response) {
+void parse_next_location(vector<char> &response) {
 	static const string location_header = "Location: ";
 
 	char *start_of_location_attribute = strstr(response.data(), location_header.data());
@@ -102,13 +98,20 @@ string parse_next_location(vector<char> &response) {
 							INTERNAL_ERROR);
 	}
 
-	char *end_of_location_line = strchr(start_of_location_attribute, '\r');
 	start_of_location_attribute += location_header.size();
 
+	// erase all other stuff from the vector
 	unsigned long startIndex = start_of_location_attribute - response.data();
-	unsigned long endIndex = end_of_location_line - response.data();
+	response.erase(response.begin(),response.begin() + startIndex); //erase the first part
 
-	return string(response.begin() + startIndex, response.begin() + endIndex);
+	cout << response.data();
+
+	char *end_of_location_line = strchr(response.data(), '\r');
+	unsigned long endIndex = end_of_location_line - response.data();
+	response.erase(response.begin() + endIndex,response.end()); //erase the rest
+
+	cout << response.data();
+	//return string(response.begin() + startIndex, response.begin() + endIndex);
 }
 
 static std::string create_http_request(const Parsed_url &parsed_url) {
@@ -118,14 +121,8 @@ static std::string create_http_request(const Parsed_url &parsed_url) {
 	return message;
 }
 
-/**
- * Function communicates with specified server using BSD socket
- * @return string - next url to search at, NULL means success
- */
-string communicate(const Parsed_url &parsed_url, const string &file_name, RedirHandler &redirHandler) {
+static int prepare_socket(const Parsed_url &parsed_url) {
 	int client_socket;
-	std::string msg = create_http_request(parsed_url);
-
 	if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
 		perror("ERROR: socket");
 		throw BaseException("Socket was not created succesfully", SOCKET_ERROR);
@@ -148,22 +145,41 @@ string communicate(const Parsed_url &parsed_url, const string &file_name, RedirH
 		perror("ERROR: connect");
 		throw BaseException("Connection was not started successfully\n", CONNECT_ERROR);
 	}
+	return client_socket;
+}
+
+static void send_message(int socket, string message) {
 
 	ssize_t bytes_count = 0;
 	//std::cout << "size: " << msg.size() << "strlen: " << strlen((msg.c_str())) << "\n";
-	bytes_count = send(client_socket, msg.c_str(), msg.size(), 0);
+	bytes_count = send(socket, message.c_str(), message.size(), 0);
 	if (bytes_count < 0) {
 		perror("ERROR: sendto");
 		throw BaseException("Request was not send successfully\n", SEND_ERROR);
 	}
+}
 
+enum response_type {
+	REDIRECTION = -1
+};
 
-	vector<char> response;
+/**
+ * gets response from socket
+ * @param (int) socket socket descriptor
+ * @param (RedirHandler & ) redirHandler
+ * @param (const Parsed_url & ) parsed_url
+ * @param (vector<char> &) response used to return the content of the message
+ * @return (long) size of the message, -1 == REDIRECTION
+ */
+static long get_response(int socket, RedirHandler &redirHandler,
+						 const Parsed_url &parsed_url, vector<char> &response) {
+	ssize_t bytes_count;
 	response.resize(BUFFER_SIZE);
+	//response.clear() for some reason this clears the vector, much later, and permamently
 
 	int ret_val;
 	// first process the header
-	if ((bytes_count = recv(client_socket, response.data(), HEADER_SIZE, 0)) > 0) {
+	if ((bytes_count = recv(socket, response.data(), HEADER_SIZE, 0)) > 0) {
 		if (is_version_10(response)) {
 			cerr << "This is 1.0 ! :O";
 			exit(UNIMPLEMENTED_HTTP_RET_VAL);
@@ -172,14 +188,16 @@ string communicate(const Parsed_url &parsed_url, const string &file_name, RedirH
 		switch (ret_val = parse_ret_val(response.data())) {
 			case 200: // ok
 				break;
-			case 301:{
-				string next_location = parse_next_location(response);
+			case 301: {
+				parse_next_location(response);
 				redirHandler.save_new_redirection("http://" + parsed_url.getDomain() + parsed_url.getLocal_link(),
-												  next_location);
-				return next_location;
+												  response.data());
+				return REDIRECTION;
 			}
-			case 302:
-				return parse_next_location(response);
+			case 302: {
+				parse_next_location(response);
+				return REDIRECTION;
+			}
 			default:
 				std::cerr << "RET VAL: " << ret_val << "\n";
 				throw BaseException("HTTP ERROR", UNIMPLEMENTED_HTTP_RET_VAL);
@@ -188,35 +206,56 @@ string communicate(const Parsed_url &parsed_url, const string &file_name, RedirH
 		throw BaseException("No data received", RECV_ERROR);
 	}
 
-	// get the first part of data
-	bool isChunked = strstr(response.data(), "Transfer-Encoding: chunked") != NULL;
-	remove_header(response, bytes_count);
-
-
-	unsigned long oldSize = 0;
+	unsigned long size_of_vector = 0;
 	do {
-		oldSize += (unsigned long) bytes_count;
-		response.resize(oldSize + BUFFER_SIZE);
-	} while ((bytes_count = recv(client_socket, response.data() + oldSize, BUFFER_SIZE, 0)) > 0);
+		size_of_vector += (unsigned long) bytes_count;
+		response.resize(size_of_vector + BUFFER_SIZE);
+	} while ((bytes_count = recv(socket, response.data() + size_of_vector, BUFFER_SIZE, 0)) > 0);
 
 
 	if (bytes_count < 0) {
 		perror("ERROR: recvfrom");
 		throw BaseException("The transminsion of data was not successfull", RECV_ERROR);
 	}
+	return size_of_vector;
+}
+
+/**
+ * Function communicates with specified server using BSD socket
+ * @return string - next url to search at, "" means success
+ */
+string communicate(const Parsed_url &parsed_url, const string &file_name, RedirHandler &redirHandler) {
+	int client_socket = prepare_socket(parsed_url);
+	std::string msg = create_http_request(parsed_url);
+
+	send_message(client_socket, msg);
+
+	vector<char> response;
+	long size = get_response(client_socket, redirHandler, parsed_url, response);
+	if (size == REDIRECTION) {
+		return string(response.data());
+	}
+
+	// get the first part of data
+	bool isChunked = strstr(response.data(), "Transfer-Encoding: chunked") != NULL;
+	remove_header(response);
+
+
 	if (close(client_socket) != 0) {
 		perror("ERROR: close");
 		throw BaseException("Closing of socket was not successfull", CLOSE_ERROR);
 	}
 
-
 	// open the file for writing
 	ofstream output_file(file_name, std::ios_base::binary);
+	if(!output_file){
+		throw BaseException("File " + file_name + " was not opened successfully",FILE_NOT_OPENED);
+	}
 
 	if (isChunked)
 		print_without_chunk_numbers(response, output_file);
 	else {
-		std::copy(response.begin(), response.begin() + oldSize, std::ostream_iterator<char>(output_file));
+		std::copy(response.begin(), response.begin() + size, std::ostream_iterator<char>(output_file));
 	}
 	output_file.close();
 	return "";
