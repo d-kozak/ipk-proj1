@@ -39,7 +39,7 @@ int parse_ret_val(char *buffer) {
 /**
  * Function removes header from the response
  */
-static void remove_header(vector<char> &buffer) {
+static void remove_header(vector<char> &buffer,long & size) {
 	static const string header_end = "\r\n\r\n"; // specific header end according to http protocol
 	char *end = strstr(buffer.data(), header_end.data()); // try to find the end of header
 
@@ -51,6 +51,7 @@ static void remove_header(vector<char> &buffer) {
 
 	// erase header from response
 	buffer.erase(buffer.begin(), buffer.begin() + end_of_head);
+	size -= end_of_head;
 }
 
 /**
@@ -104,14 +105,11 @@ void parse_next_location(vector<char> &response) {
 	unsigned long startIndex = start_of_location_attribute - response.data();
 	response.erase(response.begin(),response.begin() + startIndex); //erase the first part
 
-	cout << response.data();
-
 	char *end_of_location_line = strchr(response.data(), '\r');
 	unsigned long endIndex = end_of_location_line - response.data();
-	response.erase(response.begin() + endIndex,response.end()); //erase the rest
 
-	cout << response.data();
-	//return string(response.begin() + startIndex, response.begin() + endIndex);
+	response.resize(endIndex + 1);
+	response.at(endIndex) = '\0';
 }
 
 static std::string create_http_request(const Parsed_url &parsed_url) {
@@ -180,7 +178,7 @@ static long get_response(int socket, RedirHandler &redirHandler,
 	int ret_val;
 	// first process the header
 	if ((bytes_count = recv(socket, response.data(), HEADER_SIZE, 0)) > 0) {
-		if (is_version_10(response)) {
+		if (is_version_10(response) && parse_ret_val(response.data()) != 200) {
 			cerr << "This is 1.0 ! :O";
 			exit(UNIMPLEMENTED_HTTP_RET_VAL);
 		}
@@ -238,7 +236,7 @@ string communicate(const Parsed_url &parsed_url, const string &file_name, RedirH
 
 	// get the first part of data
 	bool isChunked = strstr(response.data(), "Transfer-Encoding: chunked") != NULL;
-	remove_header(response);
+	remove_header(response,size);
 
 
 	if (close(client_socket) != 0) {

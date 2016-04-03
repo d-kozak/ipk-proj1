@@ -115,9 +115,8 @@ Parsed_url parse_url(std::string& url) {
  */
 const string parse_file_name(const string &local_link) {
 
-	// if the last '/' is in the  'http://' , use the default name
-	// TODO maybe this is not the best way, think about it :)
-	if (local_link.find_last_of('/') == 6) {
+	// check wheter the file name was specified(the url does not end with '/'
+	if (local_link.find_last_of('/') == local_link.size() - 1) {
 		return "index.html";
 	} else {
 		string file_name;

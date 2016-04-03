@@ -31,12 +31,13 @@ bool RedirHandler::check_for_redir(const std::string &url) {
 
 
 string RedirHandler::get_redirected_url(const string &original_url) {
-	string redirected_url = original_url;
-	while(this->check_for_redir(redirected_url)){
+	//string redirected_url = original_url;
+	/*while(this->check_for_redir(redirected_url)){
 		//cout << "Redirecting from " << original_url << " to " << redirected_url << endl;	
 		redirected_url = this->memory[redirected_url];
-	}
-	return redirected_url;
+	}*/
+	// u horni casti je riziko zacykleni, kdyz by dva redir odkazovaly vzajemne na sebe
+	return this->memory[original_url];
 }
 
 void RedirHandler::save_new_redirection(const string &from, const string &to) {
