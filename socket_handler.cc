@@ -10,6 +10,9 @@ static const int HEADER_SIZE = 320;
 
 using namespace std;
 
+static long get_response(int socket, RedirHandler &redirHandler,
+						 const Parsed_url &parsed_url, vector<char> &response, bool first_time);
+
 static inline bool is_version_10(vector<char> &response) {
 	return response[7] == '0';
 }
@@ -39,7 +42,7 @@ int parse_ret_val(char *buffer) {
 /**
  * Function removes header from the response
  */
-static void remove_header(vector<char> &buffer,long & size) {
+static void remove_header(vector<char> &buffer, long &size) {
 	static const string header_end = "\r\n\r\n"; // specific header end according to http protocol
 	char *end = strstr(buffer.data(), header_end.data()); // try to find the end of header
 
@@ -103,7 +106,7 @@ void parse_next_location(vector<char> &response) {
 
 	// erase all other stuff from the vector
 	unsigned long startIndex = start_of_location_attribute - response.data();
-	response.erase(response.begin(),response.begin() + startIndex); //erase the first part
+	response.erase(response.begin(), response.begin() + startIndex); //erase the first part
 
 	char *end_of_location_line = strchr(response.data(), '\r');
 	unsigned long endIndex = end_of_location_line - response.data();
@@ -112,7 +115,13 @@ void parse_next_location(vector<char> &response) {
 	response.at(endIndex) = '\0';
 }
 
-static std::string create_http_request(const Parsed_url &parsed_url) {
+static std::string create_http_1_0_request(const Parsed_url &parsed_url) {
+	std::string message = "GET " + parsed_url.getLocal_link() + " HTTP/1.0\r\n";
+	message.append("Host: " + parsed_url.getDomain() + "\r\n");
+	return message;
+}
+
+static std::string create_http_1_1_request(const Parsed_url &parsed_url) {
 	std::string message = "GET " + parsed_url.getLocal_link() + " HTTP/1.1\r\n";
 	message.append("Host: " + parsed_url.getDomain() + "\r\n");
 	message.append("Connection: close\r\n\r\n");
@@ -157,9 +166,30 @@ static void send_message(int socket, string message) {
 	}
 }
 
+
+static void close_socket(int client_socket) {
+	if (close(client_socket) != 0) {
+		perror("ERROR: close");
+		throw BaseException("Closing of socket was not successfull", CLOSE_ERROR);
+	}
+}
+
 enum response_type {
 	REDIRECTION = -1
 };
+
+static long try_http_1_0(const Parsed_url &parsed_url,RedirHandler & redirHandler,vector<char>& response) {
+	int socket = prepare_socket(parsed_url);
+	string msg = create_http_1_0_request(parsed_url);
+
+	send_message(socket, msg);
+
+	response.clear();
+
+	long size = get_response(socket,redirHandler,parsed_url,response,false);
+	return size;
+}
+
 
 /**
  * gets response from socket
@@ -170,7 +200,7 @@ enum response_type {
  * @return (long) size of the message, -1 == REDIRECTION
  */
 static long get_response(int socket, RedirHandler &redirHandler,
-						 const Parsed_url &parsed_url, vector<char> &response) {
+						 const Parsed_url &parsed_url, vector<char> &response, bool first_time) {
 	ssize_t bytes_count;
 	response.resize(BUFFER_SIZE);
 	//response.clear() for some reason this clears the vector, much later, and permamently
@@ -196,6 +226,17 @@ static long get_response(int socket, RedirHandler &redirHandler,
 				parse_next_location(response);
 				return REDIRECTION;
 			}
+			case 400:
+			case 505:
+				if (first_time) {
+					close_socket(socket);
+					bytes_count = try_http_1_0(parsed_url,redirHandler,response);
+					if(bytes_count ==  REDIRECTION)
+						return REDIRECTION;
+					else
+						break;
+
+				}
 			default:
 				std::cerr << "RET VAL: " << ret_val << "\n";
 				throw BaseException("HTTP ERROR", UNIMPLEMENTED_HTTP_RET_VAL);
@@ -224,30 +265,27 @@ static long get_response(int socket, RedirHandler &redirHandler,
  */
 string communicate(const Parsed_url &parsed_url, const string &file_name, RedirHandler &redirHandler) {
 	int client_socket = prepare_socket(parsed_url);
-	std::string msg = create_http_request(parsed_url);
+	std::string msg = create_http_1_1_request(parsed_url);
 
 	send_message(client_socket, msg);
 
 	vector<char> response;
-	long size = get_response(client_socket, redirHandler, parsed_url, response);
+	long size = get_response(client_socket, redirHandler, parsed_url, response,true);
 	if (size == REDIRECTION) {
 		return string(response.data());
 	}
 
 	// get the first part of data
 	bool isChunked = strstr(response.data(), "Transfer-Encoding: chunked") != NULL;
-	remove_header(response,size);
+	remove_header(response, size);
 
 
-	if (close(client_socket) != 0) {
-		perror("ERROR: close");
-		throw BaseException("Closing of socket was not successfull", CLOSE_ERROR);
-	}
+	close_socket(client_socket);
 
 	// open the file for writing
 	ofstream output_file(file_name, std::ios_base::binary);
-	if(!output_file){
-		throw BaseException("File " + file_name + " was not opened successfully",FILE_NOT_OPENED);
+	if (!output_file) {
+		throw BaseException("File " + file_name + " was not opened successfully", FILE_NOT_OPENED);
 	}
 
 	if (isChunked)
